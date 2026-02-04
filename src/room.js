@@ -9,8 +9,8 @@ const ADMIN_NAME = "weijin";
 const CHAT_RETENTION_MS = 90 * 24 * 60 * 60 * 1000;
 const CHAT_HISTORY_LIMIT = 200;
 const CHAT_PRUNE_INTERVAL_MS = 60 * 60 * 1000;
-const CALL_NOTIFY_DURATION_MS = 45 * 1000;
-const CALL_NOTIFY_INTERVAL_MS = 15 * 1000;
+const CALL_NOTIFY_DURATION_MS = 60 * 1000;
+const CALL_NOTIFY_INTERVAL_MS = 4 * 1000;
 
 const textDecoder = new TextDecoder();
 const textEncoder = new TextEncoder();

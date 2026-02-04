@@ -39,8 +39,8 @@ const langEnBtn = document.querySelector("#langEn");
 const FIXED_ROOM = "family";
 const ADMIN_NAME = "weijin";
 const FIXED_PASSCODE = "Sr@20050829";
-const CALL_ALERT_DURATION_MS = 45 * 1000;
-const CALL_ALERT_INTERVAL_MS = 3500;
+const CALL_ALERT_DURATION_MS = 60 * 1000;
+const CALL_ALERT_INTERVAL_MS = 4000;
 const STORAGE_KEYS = {
   name: "fc_name",
   room: "fc_room",
