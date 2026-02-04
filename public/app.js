@@ -296,7 +296,10 @@ function hideSoundBanner() {
 }
 
 async function unlockAudio() {
-  if (state.audioUnlocked) return;
+  if (state.audioUnlocked) {
+    hideSoundBanner();
+    return;
+  }
   state.audioUnlocked = true;
   try {
     const AudioCtx = window.AudioContext || window.webkitAudioContext;
@@ -316,8 +319,32 @@ async function unlockAudio() {
   } catch {
     // Ignore audio unlock errors.
   }
-  tryPlayAllRemoteVideos();
+  try {
+    tryPlayAllRemoteVideos();
+  } catch {
+    // Ignore playback errors.
+  }
+  unmuteRemoteVideos();
   hideSoundBanner();
+}
+
+function prepareRemoteVideo(video) {
+  if (!video) return;
+  if (isIOSDevice() && !state.audioUnlocked) {
+    video.muted = true;
+  } else {
+    video.muted = false;
+  }
+  video.volume = 1;
+}
+
+function unmuteRemoteVideos() {
+  document.querySelectorAll(".video-tile video").forEach((video) => {
+    if (video.id === "localVideo") return;
+    video.muted = false;
+    video.volume = 1;
+    tryPlayVideo(video);
+  });
 }
 
 function tryPlayVideo(video) {
@@ -333,6 +360,7 @@ function tryPlayVideo(video) {
 function tryPlayAllRemoteVideos() {
   document.querySelectorAll(".video-tile video").forEach((video) => {
     if (video.id === "localVideo") return;
+    prepareRemoteVideo(video);
     tryPlayVideo(video);
   });
 }
@@ -846,6 +874,7 @@ function createRemoteTile(peer) {
   video.playsInline = true;
   video.setAttribute("playsinline", "");
   video.setAttribute("webkit-playsinline", "");
+  prepareRemoteVideo(video);
   video.srcObject = peer.stream;
 
   const label = document.createElement("div");
@@ -1447,9 +1476,12 @@ if (callBannerDismiss) {
 }
 
 if (soundEnableBtn) {
-  soundEnableBtn.addEventListener("click", () => {
+  const handler = () => {
     unlockAudio();
-  });
+  };
+  soundEnableBtn.addEventListener("click", handler);
+  soundEnableBtn.addEventListener("touchend", handler);
+  soundEnableBtn.addEventListener("pointerup", handler);
 }
 
 document.addEventListener(
@@ -1459,6 +1491,12 @@ document.addEventListener(
   },
   { once: true },
 );
+
+if (soundBanner) {
+  soundBanner.addEventListener("click", () => {
+    unlockAudio();
+  });
+}
 
 chatForm.addEventListener("submit", (event) => {
   event.preventDefault();
