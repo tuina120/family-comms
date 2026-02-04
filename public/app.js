@@ -297,6 +297,7 @@ function setLang(lang) {
 
 function updateAccessUI() {
   const showSetup = params.get("setup") === "1";
+  const hasPrefillPass = Boolean(passcodeInput && passcodeInput.value);
   if (passcodeField && passcodeInput) {
     passcodeField.hidden = !showSetup;
     passcodeInput.required = false;
