@@ -17,7 +17,10 @@
             <button type="button" id="langZh" data-lang="zh">中文</button>
             <button type="button" id="langEn" data-lang="en">EN</button>
           </div>
-          <div class="status" id="status">Offline</div>
+          <div class="status" id="status" data-state="status_offline">
+            <span class="status-dot" aria-hidden="true"></span>
+            <span class="status-text">Offline</span>
+          </div>
         </div>
       </header>
 
@@ -70,50 +73,61 @@
 
       <main class="layout" id="mainLayout" hidden>
         <section class="video-panel">
+          <div class="panel-header">
+            <div class="panel-title" data-i18n="panel_video">Video</div>
+            <div class="panel-actions">
+              <button id="toggleMic">Mute</button>
+              <button id="toggleCam">Camera Off</button>
+              <button id="leaveBtn" class="danger" data-i18n="leave">
+                Leave
+              </button>
+            </div>
+          </div>
           <div class="videos" id="videoGrid">
             <div class="video-tile local">
               <video id="localVideo" autoplay playsinline muted></video>
-              <div class="label">You</div>
+              <div class="label" data-i18n="label_you">You</div>
             </div>
-          </div>
-          <div class="controls">
-            <button id="toggleMic">Mute</button>
-            <button id="toggleCam">Camera Off</button>
-            <button id="leaveBtn" class="danger" data-i18n="leave">
-              Leave
-            </button>
           </div>
         </section>
 
         <section class="chat-panel">
-          <div class="participants" id="participants"></div>
-          <div class="invite" id="invitePanel" hidden>
-            <div class="invite-title" data-i18n="invite_title">
-              Invite family
-            </div>
-            <div class="invite-row">
-              <input id="inviteLink" readonly />
-              <button id="copyInvite" data-i18n="invite_copy">Copy</button>
-            </div>
-            <div class="invite-actions">
-              <label class="checkbox">
-                <input type="checkbox" id="includePasscode" />
-                <span data-i18n="invite_include_passcode">Include passcode</span>
-              </label>
-              <button id="shareInvite" data-i18n="invite_share">Share</button>
-            </div>
-            <div class="invite-qr">
-              <img
-                id="inviteQr"
-                alt="Invite QR code"
-                loading="lazy"
-                referrerpolicy="no-referrer"
-              />
-            </div>
-            <div class="join-hint" data-i18n="invite_qr_hint">
-              QR is generated from the invite link.
-            </div>
+          <div class="panel-header">
+            <div class="panel-title" data-i18n="panel_chat">Chat</div>
+            <div class="panel-meta" id="participantCount">0/4</div>
           </div>
+          <div class="participants" id="participants"></div>
+          <details class="invite" id="invitePanel" hidden>
+            <summary class="invite-summary" data-i18n="invite_title">
+              Invite family
+            </summary>
+            <div class="invite-body">
+              <div class="invite-row">
+                <input id="inviteLink" readonly />
+                <button id="copyInvite" data-i18n="invite_copy">Copy</button>
+              </div>
+              <div class="invite-actions">
+                <label class="checkbox">
+                  <input type="checkbox" id="includePasscode" />
+                  <span data-i18n="invite_include_passcode"
+                    >Include passcode</span
+                  >
+                </label>
+                <button id="shareInvite" data-i18n="invite_share">Share</button>
+              </div>
+              <div class="invite-qr">
+                <img
+                  id="inviteQr"
+                  alt="Invite QR code"
+                  loading="lazy"
+                  referrerpolicy="no-referrer"
+                />
+              </div>
+              <div class="join-hint" data-i18n="invite_qr_hint">
+                QR is generated from the invite link.
+              </div>
+            </div>
+          </details>
           <div class="messages" id="messages"></div>
           <form class="chat-form" id="chatForm">
             <input

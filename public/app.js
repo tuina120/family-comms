@@ -14,6 +14,7 @@ const videoGrid = document.querySelector("#videoGrid");
 const toggleMicBtn = document.querySelector("#toggleMic");
 const toggleCamBtn = document.querySelector("#toggleCam");
 const leaveBtn = document.querySelector("#leaveBtn");
+const participantCountEl = document.querySelector("#participantCount");
 const participantsEl = document.querySelector("#participants");
 const invitePanel = document.querySelector("#invitePanel");
 const inviteLink = document.querySelector("#inviteLink");
@@ -40,6 +41,9 @@ const i18n = {
     label_name: "Name",
     label_room: "Room",
     label_passcode: "Passcode",
+    label_you: "You",
+    panel_video: "Video",
+    panel_chat: "Chat",
     placeholder_name: "Your name",
     placeholder_room: "Family room",
     placeholder_passcode: "Family code",
@@ -79,6 +83,9 @@ const i18n = {
     label_name: "姓名",
     label_room: "房间",
     label_passcode: "口令",
+    label_you: "你",
+    panel_video: "视频",
+    panel_chat: "聊天",
     placeholder_name: "你的名字",
     placeholder_room: "家庭房间",
     placeholder_passcode: "家庭口令",
@@ -132,7 +139,13 @@ const state = {
 };
 
 function setStatus(text) {
-  statusEl.textContent = text;
+  if (!statusEl) return;
+  const textEl = statusEl.querySelector(".status-text");
+  if (textEl) {
+    textEl.textContent = text;
+  } else {
+    statusEl.textContent = text;
+  }
 }
 
 function t(key, vars) {
@@ -148,6 +161,9 @@ function t(key, vars) {
 
 function setStatusKey(key) {
   state.statusKey = key;
+  if (statusEl) {
+    statusEl.dataset.state = key;
+  }
   setStatus(t(key));
 }
 
@@ -232,6 +248,7 @@ function setLang(lang) {
   localStorage.setItem("lang", state.lang);
   document.documentElement.lang = state.lang === "zh" ? "zh-Hans" : "en";
   updateText();
+  renderParticipants();
 }
 
 function updateAccessUI() {
@@ -378,10 +395,11 @@ async function loadConfig() {
     if (iceServers.length) {
       state.iceServers = iceServers;
     }
-  state.configLoaded = true;
-  updateAccessUI();
-  updateInvite();
-  updateText();
+    state.configLoaded = true;
+    updateAccessUI();
+    updateInvite();
+    updateParticipantCount();
+    updateText();
 } catch {
     // Ignore config fetch errors and keep defaults.
   }
@@ -412,11 +430,21 @@ function addChatMessage({ name, text, ts, self }) {
   messagesEl.scrollTop = messagesEl.scrollHeight;
 }
 
+function updateParticipantCount() {
+  if (!participantCountEl) return;
+  const base = state.name ? 1 : 0;
+  const total = base + state.peers.size;
+  participantCountEl.textContent = `${total}/${state.maxPeers}`;
+}
+
 function renderParticipants() {
   participantsEl.innerHTML = "";
   const pills = [];
   if (state.name) {
-    pills.push({ id: state.selfId || "self", name: `${state.name} (You)` });
+    pills.push({
+      id: state.selfId || "self",
+      name: `${state.name} (${t("label_you")})`,
+    });
   }
   for (const peer of state.peers.values()) {
     pills.push({ id: peer.id, name: peer.name });
@@ -427,6 +455,7 @@ function renderParticipants() {
     el.textContent = pill.name;
     participantsEl.appendChild(el);
   }
+  updateParticipantCount();
 }
 
 function createRemoteTile(peer) {
