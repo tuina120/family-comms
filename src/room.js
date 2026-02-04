@@ -9,6 +9,8 @@ const ADMIN_NAME = "weijin";
 const CHAT_RETENTION_MS = 90 * 24 * 60 * 60 * 1000;
 const CHAT_HISTORY_LIMIT = 200;
 const CHAT_PRUNE_INTERVAL_MS = 60 * 60 * 1000;
+const CALL_NOTIFY_DURATION_MS = 45 * 1000;
+const CALL_NOTIFY_INTERVAL_MS = 15 * 1000;
 
 const textDecoder = new TextDecoder();
 const textEncoder = new TextEncoder();
@@ -197,6 +199,69 @@ export class Room extends DurableObject {
       return messages.slice(-CHAT_HISTORY_LIMIT);
     }
     return messages;
+  }
+
+  async scheduleNextAlarm() {
+    const calls = await this.ctx.storage.list({ prefix: "call:" });
+    let next = null;
+    for (const [, record] of calls.entries()) {
+      if (!record || typeof record.nextAt !== "number") continue;
+      if (next === null || record.nextAt < next) {
+        next = record.nextAt;
+      }
+    }
+    if (next) {
+      const scheduled = Math.max(next, Date.now() + 500);
+      await this.ctx.storage.setAlarm(scheduled);
+    }
+  }
+
+  async scheduleCallRepeat(callerName, targetName) {
+    if (!this.getVapidConfig()) return;
+    const now = Date.now();
+    const key = targetName
+      ? `call:${targetName.toLowerCase()}`
+      : "call:all";
+    const record = {
+      callerName: callerName || "",
+      targetName: targetName || null,
+      endAt: now + CALL_NOTIFY_DURATION_MS,
+      nextAt: now + CALL_NOTIFY_INTERVAL_MS,
+    };
+    await this.ctx.storage.put(key, record);
+    await this.scheduleNextAlarm();
+  }
+
+  async processScheduledCalls() {
+    const now = Date.now();
+    const calls = await this.ctx.storage.list({ prefix: "call:" });
+    if (!calls.size) return;
+    const deletions = [];
+    const updates = new Map();
+
+    for (const [key, record] of calls.entries()) {
+      if (!record || typeof record.endAt !== "number") {
+        deletions.push(key);
+        continue;
+      }
+      if (now >= record.endAt) {
+        deletions.push(key);
+        continue;
+      }
+      if (typeof record.nextAt === "number" && now >= record.nextAt) {
+        await this.notifyOffline(record.callerName, record.targetName);
+        record.nextAt = now + CALL_NOTIFY_INTERVAL_MS;
+        updates.set(key, record);
+      }
+    }
+
+    if (deletions.length) {
+      await this.ctx.storage.delete(deletions);
+    }
+    for (const [key, record] of updates.entries()) {
+      await this.ctx.storage.put(key, record);
+    }
+    await this.scheduleNextAlarm();
   }
 
   async handleSubscribe(request) {
@@ -416,9 +481,11 @@ export class Room extends DurableObject {
         if (targetName) {
           this.sendToName(targetName, payload, ws);
           this.notifyOffline(info.name, targetName).catch(() => {});
+          this.scheduleCallRepeat(info.name, targetName).catch(() => {});
         } else {
           this.broadcast(payload, ws);
           this.notifyOffline(info.name).catch(() => {});
+          this.scheduleCallRepeat(info.name, null).catch(() => {});
         }
         return;
       }
@@ -442,6 +509,10 @@ export class Room extends DurableObject {
     if (ws.readyState <= 1) {
       ws.close(1011, "WebSocket error");
     }
+  }
+
+  async alarm() {
+    await this.processScheduledCalls();
   }
 
   broadcast(message, except) {
