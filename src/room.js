@@ -5,6 +5,7 @@ const MAX_NAME_LEN = 32;
 const MAX_MSG_LEN = 1000;
 const DEFAULT_PASSCODE = "Sr@20050829";
 const VAPID_EXP_SECONDS = 12 * 60 * 60;
+const ADMIN_NAME = "weijin";
 const CHAT_RETENTION_MS = 90 * 24 * 60 * 60 * 1000;
 const CHAT_HISTORY_LIMIT = 200;
 const CHAT_PRUNE_INTERVAL_MS = 60 * 60 * 1000;
@@ -40,6 +41,10 @@ function normalizeName(name) {
   if (!name) return "Guest";
   const trimmed = name.trim().slice(0, MAX_NAME_LEN);
   return trimmed || "Guest";
+}
+
+function isAdmin(name) {
+  return Boolean(name && name.toLowerCase() === ADMIN_NAME);
 }
 
 function normalizeText(text) {
@@ -367,6 +372,31 @@ export class Room extends DurableObject {
         this.safeSend(ws, { type: "pong", ts: Date.now() });
         return;
       }
+      case "kick": {
+        if (!isAdmin(info.name)) {
+          this.safeSend(ws, { type: "error", code: "not_authorized" });
+          return;
+        }
+        const rawTarget =
+          typeof data.name === "string" ? data.name.trim().slice(0, MAX_NAME_LEN) : "";
+        if (!rawTarget) return;
+        const targetName = normalizeName(rawTarget);
+        if (!targetName || targetName.toLowerCase() === info.name.toLowerCase()) {
+          return;
+        }
+        const target = this.findSocketByName(targetName);
+        if (!target) {
+          this.safeSend(ws, {
+            type: "error",
+            code: "kick_not_online",
+            name: targetName,
+          });
+          return;
+        }
+        this.safeSend(target, { type: "kicked", by: info.name, ts: Date.now() });
+        target.close(4001, "Kicked");
+        return;
+      }
       case "call": {
         const targetName =
           typeof data.to === "string" ? data.to.trim().slice(0, MAX_NAME_LEN) : "";
@@ -444,6 +474,17 @@ export class Room extends DurableObject {
     for (const ws of this.ctx.getWebSockets()) {
       const info = ws.deserializeAttachment();
       if (info && info.id === id) return ws;
+    }
+    return null;
+  }
+
+  findSocketByName(name) {
+    const target = name.toLowerCase();
+    for (const ws of this.ctx.getWebSockets()) {
+      const info = ws.deserializeAttachment();
+      if (info && info.name && info.name.toLowerCase() === target) {
+        return ws;
+      }
     }
     return null;
   }

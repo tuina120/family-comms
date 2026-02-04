@@ -418,6 +418,15 @@ button:disabled {
   font-size: 11px;
 }
 
+.participant-kick {
+  border: 1px solid #fecaca;
+  background: #fff1f2;
+  padding: 4px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  color: #b91c1c;
+}
+
 .participant-pill.offline {
   opacity: 0.6;
 }

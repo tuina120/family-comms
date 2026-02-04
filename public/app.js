@@ -37,6 +37,7 @@ const langZhBtn = document.querySelector("#langZh");
 const langEnBtn = document.querySelector("#langEn");
 
 const FIXED_ROOM = "family";
+const ADMIN_NAME = "weijin";
 const FIXED_PASSCODE = "Sr@20050829";
 const STORAGE_KEYS = {
   name: "fc_name",
@@ -63,6 +64,7 @@ const i18n = {
     call_all_button: "Call all",
     call_button: "Call",
     call_dismiss: "Dismiss",
+    kick_button: "Remove",
     roster_online: "Online",
     roster_offline: "Wake",
     placeholder_name: "Your name",
@@ -101,6 +103,10 @@ const i18n = {
     msg_call_sent_to: "Calling {name}.",
     msg_no_one_online: "No one else is online right now.",
     msg_incoming_call: "{name} is calling you.",
+    msg_kicked: "You were removed by the admin.",
+    msg_kick_sent: "Removed {name}.",
+    msg_kick_failed: "Unable to remove {name}.",
+    msg_kick_failed_generic: "Unable to remove the user.",
     error_passcode_required: "Passcode required.",
     error_name_not_allowed: "Name not allowed.",
     error_join_failed: "Unable to join. Check passcode or name.",
@@ -121,6 +127,7 @@ const i18n = {
     call_all_button: "呼叫全部",
     call_button: "呼叫",
     call_dismiss: "关闭提示",
+    kick_button: "下线",
     roster_online: "在线",
     roster_offline: "待唤醒",
     placeholder_name: "你的名字",
@@ -159,6 +166,10 @@ const i18n = {
     msg_call_sent_to: "正在呼叫 {name}。",
     msg_no_one_online: "当前没有其他人在线。",
     msg_incoming_call: "{name} 正在呼叫你。",
+    msg_kicked: "已被管理员下线。",
+    msg_kick_sent: "已让 {name} 下线。",
+    msg_kick_failed: "无法让 {name} 下线。",
+    msg_kick_failed_generic: "无法让对方下线。",
     error_passcode_required: "需要口令。",
     error_name_not_allowed: "该名字不允许使用。",
     error_join_failed: "无法加入，请检查口令或名字。",
@@ -197,6 +208,10 @@ function canonicalizeName(name) {
     (entry) => entry.toLowerCase() === trimmed.toLowerCase(),
   );
   return match || trimmed;
+}
+
+function isAdminUser(name) {
+  return Boolean(name && name.toLowerCase() === ADMIN_NAME);
 }
 
 function setStatus(text) {
@@ -673,6 +688,7 @@ function renderParticipants() {
   const callingKey = state.incomingCallFrom
     ? state.incomingCallFrom.toLowerCase()
     : null;
+  const isAdmin = isAdminUser(state.name);
 
   for (const person of roster) {
     const el = document.createElement("div");
@@ -700,10 +716,23 @@ function renderParticipants() {
       event.stopPropagation();
       sendCall(person.name);
     });
+    let kickBtn = null;
+    if (isAdmin && !isSelf) {
+      kickBtn = document.createElement("button");
+      kickBtn.type = "button";
+      kickBtn.className = "participant-kick";
+      kickBtn.textContent = t("kick_button");
+      kickBtn.disabled = !state.selfId;
+      kickBtn.addEventListener("click", (event) => {
+        event.stopPropagation();
+        sendKick(person.name);
+      });
+    }
     el.appendChild(dot);
     el.appendChild(label);
     el.appendChild(status);
     el.appendChild(action);
+    if (kickBtn) el.appendChild(kickBtn);
     participantsEl.appendChild(el);
   }
 
@@ -905,6 +934,13 @@ function sendCall(targetName) {
   state.ws.send(JSON.stringify(payload));
 }
 
+function sendKick(targetName) {
+  if (!state.ws || state.ws.readyState !== WebSocket.OPEN) return;
+  const payload = { type: "kick", name: targetName };
+  state.ws.send(JSON.stringify(payload));
+  addSystemMessage(t("msg_kick_sent", { name: targetName }));
+}
+
 function playRing() {
   try {
     const AudioCtx = window.AudioContext || window.webkitAudioContext;
@@ -1072,6 +1108,26 @@ function connectWebSocket() {
           navigator.vibrate([200, 100, 200]);
         }
         playRing();
+        return;
+      }
+      case "kicked": {
+        addSystemMessage(t("msg_kicked"));
+        leaveRoom();
+        return;
+      }
+      case "error": {
+        if (data.code === "kick_not_online") {
+          const name = data.name || "";
+          if (name) {
+            addSystemMessage(t("msg_kick_failed", { name }));
+          } else {
+            addSystemMessage(t("msg_kick_failed_generic"));
+          }
+          return;
+        }
+        if (data.message) {
+          addSystemMessage(data.message);
+        }
         return;
       }
       default:
