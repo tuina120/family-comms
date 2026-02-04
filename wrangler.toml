@@ -1,4 +1,5 @@
 name = "family-comms"
+account_id = "c7cbc7b3c716ca9929d73cd227290fd0"
 main = "src/worker.js"
 compatibility_date = "2026-02-03"
 routes = ["call.qxyx.net/*"]
@@ -15,4 +16,4 @@ bindings = [
 
 [[migrations]]
 tag = "v1"
-new_classes = ["Room"]
+new_sqlite_classes = ["Room"]
