@@ -3,3 +3,5 @@ twa/keystore.jks
 twa/*.keystore
 .wrangler/
 .config/
+public/downloads/*.apk
+public/downloads/*.aab
