@@ -30,6 +30,8 @@ const notifyStatus = document.querySelector("#notifyStatus");
 const callBanner = document.querySelector("#callBanner");
 const callBannerText = document.querySelector("#callBannerText");
 const callBannerDismiss = document.querySelector("#callBannerDismiss");
+const soundBanner = document.querySelector("#soundBanner");
+const soundEnableBtn = document.querySelector("#soundEnableBtn");
 const messagesEl = document.querySelector("#messages");
 const chatForm = document.querySelector("#chatForm");
 const chatInput = document.querySelector("#chatInput");
@@ -66,6 +68,8 @@ const i18n = {
     call_all_button: "Call all",
     call_button: "Call",
     call_dismiss: "Dismiss",
+    sound_hint: "Tap to enable sound.",
+    sound_enable: "Enable",
     kick_button: "Remove",
     roster_online: "Online",
     roster_offline: "Wake",
@@ -130,6 +134,8 @@ const i18n = {
     call_all_button: "呼叫全部",
     call_button: "呼叫",
     call_dismiss: "关闭提示",
+    sound_hint: "点击开启声音。",
+    sound_enable: "开启",
     kick_button: "下线",
     roster_online: "在线",
     roster_offline: "待唤醒",
@@ -205,6 +211,8 @@ const state = {
   callBannerTimer: null,
   callAlertInterval: null,
   callAlertTimeout: null,
+  audioUnlocked: false,
+  audioContext: null,
 };
 
 function canonicalizeName(name) {
@@ -218,6 +226,10 @@ function canonicalizeName(name) {
 
 function isAdminUser(name) {
   return Boolean(name && name.toLowerCase() === ADMIN_NAME);
+}
+
+function isIOSDevice() {
+  return /iPad|iPhone|iPod/.test(navigator.userAgent);
 }
 
 function setStatus(text) {
@@ -271,6 +283,60 @@ function setNotifyStatus(key) {
   notifyStatus.textContent = state.notifyStatusKey ? t(state.notifyStatusKey) : "";
 }
 
+function showSoundBanner() {
+  if (!soundBanner) return;
+  if (!isIOSDevice()) return;
+  if (state.audioUnlocked) return;
+  if (!state.selfId) return;
+  soundBanner.hidden = false;
+}
+
+function hideSoundBanner() {
+  if (soundBanner) soundBanner.hidden = true;
+}
+
+async function unlockAudio() {
+  if (state.audioUnlocked) return;
+  state.audioUnlocked = true;
+  try {
+    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+    if (AudioCtx) {
+      if (!state.audioContext) {
+        state.audioContext = new AudioCtx();
+      }
+      if (state.audioContext.state === "suspended") {
+        await state.audioContext.resume();
+      }
+      const buffer = state.audioContext.createBuffer(1, 1, 22050);
+      const src = state.audioContext.createBufferSource();
+      src.buffer = buffer;
+      src.connect(state.audioContext.destination);
+      src.start(0);
+    }
+  } catch {
+    // Ignore audio unlock errors.
+  }
+  tryPlayAllRemoteVideos();
+  hideSoundBanner();
+}
+
+function tryPlayVideo(video) {
+  if (!video || typeof video.play !== "function") return;
+  const result = video.play();
+  if (result && typeof result.catch === "function") {
+    result.catch(() => {
+      showSoundBanner();
+    });
+  }
+}
+
+function tryPlayAllRemoteVideos() {
+  document.querySelectorAll(".video-tile video").forEach((video) => {
+    if (video.id === "localVideo") return;
+    tryPlayVideo(video);
+  });
+}
+
 function setConnectedUI(connected) {
   if (bodyEl) {
     if (connected) {
@@ -281,6 +347,9 @@ function setConnectedUI(connected) {
   }
   if (joinPanel) joinPanel.hidden = connected;
   if (mainLayout) mainLayout.hidden = !connected;
+  if (!connected) {
+    hideSoundBanner();
+  }
 }
 
 function updateLangButtons() {
@@ -337,6 +406,10 @@ function updateText() {
     callBannerText.textContent = t("msg_incoming_call", {
       name: state.incomingCallFrom,
     });
+  }
+  if (soundBanner) {
+    const text = soundBanner.querySelector(".sound-banner-text");
+    if (text) text.textContent = t("sound_hint");
   }
 }
 
@@ -771,6 +844,8 @@ function createRemoteTile(peer) {
   const video = document.createElement("video");
   video.autoplay = true;
   video.playsInline = true;
+  video.setAttribute("playsinline", "");
+  video.setAttribute("webkit-playsinline", "");
   video.srcObject = peer.stream;
 
   const label = document.createElement("div");
@@ -783,6 +858,7 @@ function createRemoteTile(peer) {
 
   peer.videoEl = video;
   peer.tileEl = tile;
+  tryPlayVideo(video);
 }
 
 function removeRemoteTile(peerId) {
@@ -861,6 +937,9 @@ function ensurePeer(id, name) {
       }
     } else if (event.track) {
       remoteStream.addTrack(event.track);
+    }
+    if (peer.videoEl) {
+      tryPlayVideo(peer.videoEl);
     }
   };
 
@@ -1092,6 +1171,7 @@ function connectWebSocket() {
           }
         }
         addSystemMessage(t("msg_connected_room"));
+        showSoundBanner();
         for (const peer of data.peers || []) {
           ensurePeer(peer.id, peer.name);
           await createOffer(peer.id);
@@ -1365,6 +1445,20 @@ if (callBannerDismiss) {
     hideCallBanner();
   });
 }
+
+if (soundEnableBtn) {
+  soundEnableBtn.addEventListener("click", () => {
+    unlockAudio();
+  });
+}
+
+document.addEventListener(
+  "click",
+  () => {
+    unlockAudio();
+  },
+  { once: true },
+);
 
 chatForm.addEventListener("submit", (event) => {
   event.preventDefault();

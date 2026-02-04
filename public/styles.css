@@ -59,6 +59,24 @@ body {
   color: #9a3412;
 }
 
+.sound-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 14px;
+  border-radius: 14px;
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  box-shadow: var(--shadow);
+  margin-bottom: 16px;
+}
+
+.sound-banner-text {
+  font-weight: 600;
+  color: #1d4ed8;
+}
+
 .top-actions {
   display: flex;
   align-items: center;
