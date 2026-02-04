@@ -27,7 +27,9 @@ bilingual switching.
 
 ### 部署到 Cloudflare Workers
 1. 运行 `wrangler deploy`
-2. 在 Cloudflare 控制台绑定自定义域名 `call.qxyx.net`
+2. `wrangler.toml` 已配置 `call.qxyx.net/*` 路由，请确保该域名在你的
+   Cloudflare 账号下
+3. 在 Cloudflare 控制台绑定自定义域名 `call.qxyx.net`
 
 ### 访问控制（可选）
 - `ROOM_PASSCODE`：进入房间的口令
@@ -92,7 +94,9 @@ Use the top-right switch, or append `?lang=zh` / `?lang=en` to the URL.
 
 ### Deploy to Cloudflare Workers
 1. Run `wrangler deploy`
-2. Bind the custom domain `call.qxyx.net` in Cloudflare
+2. `wrangler.toml` includes route `call.qxyx.net/*` — make sure the domain
+   is in your Cloudflare account
+3. Bind the custom domain `call.qxyx.net` in Cloudflare
 
 ### Access control (optional)
 - `ROOM_PASSCODE`: room passcode

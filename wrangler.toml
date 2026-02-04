@@ -1,6 +1,7 @@
 name = "family-comms"
 main = "src/worker.js"
 compatibility_date = "2026-02-03"
+routes = ["call.qxyx.net/*"]
 
 [assets]
 directory = "./public"
