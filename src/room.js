@@ -263,14 +263,20 @@ export class Room extends DurableObject {
 
     const sockets = this.ctx.getWebSockets();
     const normalizedName = name.toLowerCase();
+    let existing = null;
     for (const socket of sockets) {
       const info = socket.deserializeAttachment();
       if (info && info.name && info.name.toLowerCase() === normalizedName) {
-        return new Response("Name already in use", { status: 409 });
+        existing = socket;
+        break;
       }
     }
-    if (sockets.length >= MAX_PEERS) {
+    if (sockets.length >= MAX_PEERS && !existing) {
       return new Response("Room is full", { status: 403 });
+    }
+    if (existing) {
+      this.safeSend(existing, { type: "kicked", reason: "duplicate" });
+      existing.close(4002, "Replaced by new login");
     }
 
     const pair = new WebSocketPair();

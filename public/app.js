@@ -104,6 +104,7 @@ const i18n = {
     msg_no_one_online: "No one else is online right now.",
     msg_incoming_call: "{name} is calling you.",
     msg_kicked: "You were removed by the admin.",
+    msg_kicked_duplicate: "You signed in on another device. This device is now offline.",
     msg_kick_sent: "Removed {name}.",
     msg_kick_failed: "Unable to remove {name}.",
     msg_kick_failed_generic: "Unable to remove the user.",
@@ -167,6 +168,7 @@ const i18n = {
     msg_no_one_online: "当前没有其他人在线。",
     msg_incoming_call: "{name} 正在呼叫你。",
     msg_kicked: "已被管理员下线。",
+    msg_kicked_duplicate: "你已在其他设备登录，本机已下线。",
     msg_kick_sent: "已让 {name} 下线。",
     msg_kick_failed: "无法让 {name} 下线。",
     msg_kick_failed_generic: "无法让对方下线。",
@@ -1111,7 +1113,11 @@ function connectWebSocket() {
         return;
       }
       case "kicked": {
-        addSystemMessage(t("msg_kicked"));
+        if (data.reason === "duplicate") {
+          addSystemMessage(t("msg_kicked_duplicate"));
+        } else {
+          addSystemMessage(t("msg_kicked"));
+        }
         leaveRoom();
         return;
       }
