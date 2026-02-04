@@ -39,6 +39,8 @@ const langEnBtn = document.querySelector("#langEn");
 const FIXED_ROOM = "family";
 const ADMIN_NAME = "weijin";
 const FIXED_PASSCODE = "Sr@20050829";
+const CALL_ALERT_DURATION_MS = 30 * 1000;
+const CALL_ALERT_INTERVAL_MS = 3500;
 const STORAGE_KEYS = {
   name: "fc_name",
   room: "fc_room",
@@ -201,6 +203,8 @@ const state = {
   notifyStatusKey: "",
   incomingCallFrom: null,
   callBannerTimer: null,
+  callAlertInterval: null,
+  callAlertTimeout: null,
 };
 
 function canonicalizeName(name) {
@@ -980,10 +984,11 @@ function showCallBanner(name) {
   }
   state.callBannerTimer = setTimeout(() => {
     hideCallBanner();
-  }, 12000);
+  }, CALL_ALERT_DURATION_MS);
 }
 
 function hideCallBanner() {
+  stopCallAlert();
   if (callBanner) callBanner.hidden = true;
   if (state.callBannerTimer) {
     clearTimeout(state.callBannerTimer);
@@ -992,6 +997,35 @@ function hideCallBanner() {
   if (state.incomingCallFrom) {
     state.incomingCallFrom = null;
     renderParticipants();
+  }
+}
+
+function startCallAlert(name) {
+  stopCallAlert();
+  showCallBanner(name);
+  playRing();
+  if (navigator.vibrate) {
+    navigator.vibrate([300, 150, 300, 150, 500]);
+  }
+  state.callAlertInterval = setInterval(() => {
+    playRing();
+    if (navigator.vibrate) {
+      navigator.vibrate([300, 150, 300, 150, 500]);
+    }
+  }, CALL_ALERT_INTERVAL_MS);
+  state.callAlertTimeout = setTimeout(() => {
+    hideCallBanner();
+  }, CALL_ALERT_DURATION_MS);
+}
+
+function stopCallAlert() {
+  if (state.callAlertInterval) {
+    clearInterval(state.callAlertInterval);
+    state.callAlertInterval = null;
+  }
+  if (state.callAlertTimeout) {
+    clearTimeout(state.callAlertTimeout);
+    state.callAlertTimeout = null;
   }
 }
 
@@ -1105,11 +1139,7 @@ function connectWebSocket() {
         addSystemMessage(t("msg_incoming_call", { name: fromName }));
         state.incomingCallFrom = fromName;
         renderParticipants();
-        showCallBanner(fromName);
-        if (navigator.vibrate) {
-          navigator.vibrate([200, 100, 200]);
-        }
-        playRing();
+        startCallAlert(fromName);
         return;
       }
       case "kicked": {
@@ -1188,6 +1218,7 @@ async function joinRoom() {
 }
 
 function leaveRoom() {
+  stopCallAlert();
   if (state.ws) {
     if (state.ws.readyState !== WebSocket.CLOSED) {
       state.ws.close();
