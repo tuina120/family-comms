@@ -37,7 +37,7 @@ bilingual switching.
 
 本地 `.dev.vars`：
 ```
-ROOM_PASSCODE=yourcode
+ROOM_PASSCODE=Sr@20050829
 ALLOWED_NAMES=Mom,Dad,Son,Daughter
 ```
 
@@ -46,6 +46,11 @@ ALLOWED_NAMES=Mom,Dad,Son,Daughter
 wrangler secret put ROOM_PASSCODE
 wrangler secret put ALLOWED_NAMES
 ```
+
+### 默认直达房间
+- 页面会记住名字，之后打开 `call.qxyx.net` 会自动进入房间
+- 如需重置名字：访问 `call.qxyx.net/?reset=1`
+- 如需显示房间/口令输入：访问 `call.qxyx.net/?setup=1`
 
 ### TURN / ICE（可选）
 ```
@@ -109,7 +114,7 @@ Use the top-right switch, or append `?lang=zh` / `?lang=en` to the URL.
 
 Local `.dev.vars`:
 ```
-ROOM_PASSCODE=yourcode
+ROOM_PASSCODE=Sr@20050829
 ALLOWED_NAMES=Mom,Dad,Son,Daughter
 ```
 
@@ -118,6 +123,11 @@ Production secrets:
 wrangler secret put ROOM_PASSCODE
 wrangler secret put ALLOWED_NAMES
 ```
+
+### Auto enter room
+- The app remembers the name and auto-enters `call.qxyx.net`
+- Reset name: `call.qxyx.net/?reset=1`
+- Show room/passcode fields: `call.qxyx.net/?setup=1`
 
 ### TURN / ICE (optional)
 ```

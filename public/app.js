@@ -2,6 +2,7 @@ const statusEl = document.querySelector("#status");
 const joinPanel = document.querySelector("#joinPanel");
 const joinBtn = document.querySelector("#joinBtn");
 const nameInput = document.querySelector("#nameInput");
+const roomField = document.querySelector("#roomField");
 const roomInput = document.querySelector("#roomInput");
 const passcodeField = document.querySelector("#passcodeField");
 const passcodeInput = document.querySelector("#passcodeInput");
@@ -28,6 +29,12 @@ const chatInput = document.querySelector("#chatInput");
 const langZhBtn = document.querySelector("#langZh");
 const langEnBtn = document.querySelector("#langEn");
 
+const FIXED_PASSCODE = "Sr@20050829";
+const STORAGE_KEYS = {
+  name: "fc_name",
+  room: "fc_room",
+};
+
 const DEFAULT_STUN_URLS = ["stun:stun.l.google.com:19302"];
 
 const i18n = {
@@ -37,7 +44,7 @@ const i18n = {
     status_connecting: "Connecting...",
     status_connected: "Connected",
     status_error: "Connection error",
-    join_title: "Private family room",
+    join_title: "Family room",
     label_name: "Name",
     label_room: "Room",
     label_passcode: "Passcode",
@@ -47,8 +54,8 @@ const i18n = {
     placeholder_name: "Your name",
     placeholder_room: "Family room",
     placeholder_passcode: "Family code",
-    join_button: "Join & Start",
-    join_hint: "Share the same room name with your family.",
+    join_button: "Enter",
+    join_hint: "Your device will remember this name.",
     invite_title: "Invite family",
     invite_copy: "Copy",
     invite_share: "Share",
@@ -79,7 +86,7 @@ const i18n = {
     status_connecting: "连接中...",
     status_connected: "已连接",
     status_error: "连接错误",
-    join_title: "家庭私密房间",
+    join_title: "家庭房间",
     label_name: "姓名",
     label_room: "房间",
     label_passcode: "口令",
@@ -89,8 +96,8 @@ const i18n = {
     placeholder_name: "你的名字",
     placeholder_room: "家庭房间",
     placeholder_passcode: "家庭口令",
-    join_button: "加入并开始",
-    join_hint: "家人使用相同房间名即可进入。",
+    join_button: "进入",
+    join_hint: "此设备只需填写一次名字。",
     invite_title: "邀请家人",
     invite_copy: "复制",
     invite_share: "分享",
@@ -252,10 +259,13 @@ function setLang(lang) {
 }
 
 function updateAccessUI() {
-  const hasPrefillPass = Boolean(passcodeInput && passcodeInput.value);
+  const showSetup = params.get("setup") === "1";
   if (passcodeField && passcodeInput) {
-    passcodeField.hidden = !(state.passcodeRequired || hasPrefillPass);
-    passcodeInput.required = state.passcodeRequired;
+    passcodeField.hidden = !showSetup;
+    passcodeInput.required = false;
+  }
+  if (roomField) {
+    roomField.hidden = !showSetup;
   }
 
   if (includePasscodeCheckbox) {
@@ -350,6 +360,32 @@ async function shareInvite() {
     }
   }
   await copyInvite();
+}
+
+function loadProfile() {
+  const storedName = localStorage.getItem(STORAGE_KEYS.name) || "";
+  const storedRoom = localStorage.getItem(STORAGE_KEYS.room) || "family";
+  if (nameInput && !nameInput.value) {
+    nameInput.value = storedName;
+  }
+  if (roomInput && (!roomInput.value || roomInput.value === "family")) {
+    roomInput.value = storedRoom || "family";
+  }
+  return { storedName: storedName.trim(), storedRoom: storedRoom.trim() };
+}
+
+function saveProfile() {
+  if (state.name) {
+    localStorage.setItem(STORAGE_KEYS.name, state.name);
+  }
+  if (state.room) {
+    localStorage.setItem(STORAGE_KEYS.room, state.room);
+  }
+}
+
+function clearProfile() {
+  localStorage.removeItem(STORAGE_KEYS.name);
+  localStorage.removeItem(STORAGE_KEYS.room);
 }
 
 async function loadConfig() {
@@ -661,9 +697,11 @@ function connectWebSocket() {
         state.selfId = data.id;
         addSystemMessage(t("msg_connected_room"));
         state.connecting = false;
+        saveProfile();
         renderParticipants();
         if (invitePanel) {
           invitePanel.hidden = false;
+          invitePanel.open = false;
         }
         updateInvite();
         for (const peer of data.peers || []) {
@@ -726,7 +764,7 @@ async function joinRoom() {
 
   state.name = (nameInput.value || "Guest").trim().slice(0, 32);
   state.room = (roomInput.value || "family").trim().slice(0, 64);
-  state.passcode = (passcodeInput.value || "").trim().slice(0, 64);
+  state.passcode = FIXED_PASSCODE;
   state.selfId = null;
 
   if (state.passcodeRequired && !state.passcode) {
@@ -785,7 +823,7 @@ function leaveRoom() {
   joinBtn.disabled = false;
   state.connecting = false;
   state.selfId = null;
-  state.passcode = "";
+  state.passcode = FIXED_PASSCODE;
   if (passcodeInput) passcodeInput.value = "";
   setJoinErrorKey("");
   if (invitePanel) {
@@ -814,16 +852,22 @@ function toggleCam() {
 }
 
 const params = new URLSearchParams(window.location.search);
+if (params.get("reset") === "1") {
+  clearProfile();
+}
 const urlRoom = params.get("room");
 if (urlRoom && roomInput) roomInput.value = urlRoom.slice(0, 64);
-const urlPass = params.get("pass");
-if (urlPass && passcodeInput) passcodeInput.value = urlPass.slice(0, 64);
 const urlName = params.get("name");
 if (urlName && nameInput) nameInput.value = urlName.slice(0, 32);
 
 setLang(detectLang());
+const stored = loadProfile();
 loadConfig();
 updateText();
+
+if (stored.storedName) {
+  joinRoom();
+}
 
 joinBtn.addEventListener("click", () => {
   joinRoom();
