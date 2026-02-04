@@ -996,7 +996,6 @@ function connectWebSocket() {
     switch (data.type) {
       case "welcome": {
         state.selfId = data.id;
-        addSystemMessage(t("msg_connected_room"));
         state.connecting = false;
         setConnectedUI(true);
         saveProfile();
@@ -1006,6 +1005,21 @@ function connectWebSocket() {
           invitePanel.open = false;
         }
         updateInvite();
+        if (messagesEl) {
+          messagesEl.innerHTML = "";
+        }
+        if (Array.isArray(data.history)) {
+          for (const item of data.history) {
+            if (!item || !item.text) continue;
+            addChatMessage({
+              name: item.name || "Guest",
+              text: item.text,
+              ts: item.ts,
+              self: item.id === state.selfId,
+            });
+          }
+        }
+        addSystemMessage(t("msg_connected_room"));
         for (const peer of data.peers || []) {
           ensurePeer(peer.id, peer.name);
           await createOffer(peer.id);

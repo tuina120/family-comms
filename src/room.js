@@ -5,6 +5,9 @@ const MAX_NAME_LEN = 32;
 const MAX_MSG_LEN = 1000;
 const DEFAULT_PASSCODE = "Sr@20050829";
 const VAPID_EXP_SECONDS = 12 * 60 * 60;
+const CHAT_RETENTION_MS = 90 * 24 * 60 * 60 * 1000;
+const CHAT_HISTORY_LIMIT = 200;
+const CHAT_PRUNE_INTERVAL_MS = 60 * 60 * 1000;
 
 const textDecoder = new TextDecoder();
 const textEncoder = new TextEncoder();
@@ -132,6 +135,63 @@ export class Room extends DurableObject {
     super(ctx, env);
     this.ctx = ctx;
     this.env = env;
+    this.lastChatPrune = 0;
+  }
+
+  async appendChatMessage(message) {
+    const key = `chat:${message.ts}:${crypto.randomUUID()}`;
+    await this.ctx.storage.put(key, message);
+    this.pruneOldChats().catch(() => {});
+  }
+
+  async pruneOldChats() {
+    const now = Date.now();
+    if (now - this.lastChatPrune < CHAT_PRUNE_INTERVAL_MS) return;
+    this.lastChatPrune = now;
+    const cutoff = now - CHAT_RETENTION_MS;
+    let cursor = undefined;
+    do {
+      const page = await this.ctx.storage.list({
+        prefix: "chat:",
+        cursor,
+        limit: 1000,
+      });
+      const toDelete = [];
+      for (const [key, value] of page.entries()) {
+        if (!value || typeof value.ts !== "number" || value.ts < cutoff) {
+          toDelete.push(key);
+        }
+      }
+      if (toDelete.length) {
+        await this.ctx.storage.delete(toDelete);
+      }
+      cursor = page.cursor;
+    } while (cursor);
+  }
+
+  async getChatHistory() {
+    const cutoff = Date.now() - CHAT_RETENTION_MS;
+    let cursor = undefined;
+    const messages = [];
+    do {
+      const page = await this.ctx.storage.list({
+        prefix: "chat:",
+        cursor,
+        limit: 1000,
+      });
+      for (const [, value] of page.entries()) {
+        if (!value || typeof value.ts !== "number") continue;
+        if (value.ts < cutoff) continue;
+        messages.push(value);
+      }
+      cursor = page.cursor;
+    } while (cursor);
+
+    messages.sort((a, b) => a.ts - b.ts);
+    if (messages.length > CHAT_HISTORY_LIMIT) {
+      return messages.slice(-CHAT_HISTORY_LIMIT);
+    }
+    return messages;
   }
 
   async handleSubscribe(request) {
@@ -221,6 +281,7 @@ export class Room extends DurableObject {
       .map((ws) => ws.deserializeAttachment())
       .filter(Boolean)
       .map((info) => ({ id: info.id, name: info.name }));
+    const history = await this.getChatHistory();
 
     server.send(
       JSON.stringify({
@@ -229,6 +290,7 @@ export class Room extends DurableObject {
         name,
         peers,
         maxPeers: MAX_PEERS,
+        history,
       }),
     );
 
@@ -253,13 +315,21 @@ export class Room extends DurableObject {
       case "chat": {
         const text = normalizeText(data.text);
         if (!text) return;
-        this.broadcast({
+        const message = {
           type: "chat",
           id: info.id,
           name: info.name,
           text,
           ts: Date.now(),
+        };
+        this.broadcast({
+          type: "chat",
+          id: message.id,
+          name: message.name,
+          text: message.text,
+          ts: message.ts,
         });
+        this.appendChatMessage(message).catch(() => {});
         return;
       }
       case "signal": {
