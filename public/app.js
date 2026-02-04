@@ -285,8 +285,11 @@ function setNotifyStatus(key) {
 
 function showSoundBanner() {
   if (!soundBanner) return;
-  if (!isIOSDevice()) return;
-  if (state.audioUnlocked) return;
+  if (!state.selfId) return;
+  const needsMic =
+    state.localStream && state.localStream.getAudioTracks().length === 0;
+  if (!isIOSDevice() && !needsMic) return;
+  if (state.audioUnlocked && !needsMic) return;
   if (!state.selfId) return;
   soundBanner.hidden = false;
 }
@@ -296,11 +299,10 @@ function hideSoundBanner() {
 }
 
 async function unlockAudio() {
-  if (state.audioUnlocked) {
-    hideSoundBanner();
-    return;
+  hideSoundBanner();
+  if (!state.audioUnlocked) {
+    state.audioUnlocked = true;
   }
-  state.audioUnlocked = true;
   try {
     const AudioCtx = window.AudioContext || window.webkitAudioContext;
     if (AudioCtx) {
@@ -319,13 +321,9 @@ async function unlockAudio() {
   } catch {
     // Ignore audio unlock errors.
   }
-  try {
-    tryPlayAllRemoteVideos();
-  } catch {
-    // Ignore playback errors.
-  }
+  await ensureLocalAudio();
+  tryPlayAllRemoteVideos();
   unmuteRemoteVideos();
-  hideSoundBanner();
 }
 
 function prepareRemoteVideo(video) {
@@ -336,6 +334,46 @@ function prepareRemoteVideo(video) {
     video.muted = false;
   }
   video.volume = 1;
+}
+
+async function ensureLocalAudio() {
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return;
+  if (!state.localStream) return;
+  const existingTracks = state.localStream.getAudioTracks();
+  if (existingTracks.length) {
+    for (const track of existingTracks) {
+      track.enabled = true;
+    }
+    state.micEnabled = true;
+    updateDynamicLabels();
+    return;
+  }
+
+  try {
+    const audioStream = await navigator.mediaDevices.getUserMedia({
+      audio: true,
+      video: false,
+    });
+    const track = audioStream.getAudioTracks()[0];
+    if (!track) return;
+    state.localStream.addTrack(track);
+    state.micEnabled = true;
+    updateDynamicLabels();
+
+    for (const peer of state.peers.values()) {
+      const sender = peer.pc
+        .getSenders()
+        .find((item) => item.track && item.track.kind === "audio");
+      if (sender) {
+        await sender.replaceTrack(track);
+      } else {
+        peer.pc.addTrack(track, state.localStream);
+        await createOffer(peer.id);
+      }
+    }
+  } catch {
+    // Keep silent if mic permission fails.
+  }
 }
 
 function unmuteRemoteVideos() {
@@ -921,6 +959,9 @@ async function startLocalMedia() {
     });
     state.localStream = stream;
     localVideo.srcObject = stream;
+    for (const track of stream.getAudioTracks()) {
+      track.enabled = true;
+    }
     state.micEnabled = true;
     state.camEnabled = true;
     updateDynamicLabels();
