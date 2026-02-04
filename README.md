@@ -70,6 +70,11 @@ STUN_URLS=stun:stun.l.google.com:19302
 
 ### Android 打包（TWA）
 参见 `twa/README.md`，包含 Bubblewrap 步骤和模板。
+已准备：
+- 包名：`com.qxyx.weijin`
+- `public/.well-known/assetlinks.json` 已生成
+- `public/icon-192.png` / `public/icon-512.png` 已生成
+- keystore：`twa/keystore.p12`（PKCS12，密码请在本地保存）
 
 ## English
 
@@ -137,3 +142,8 @@ block in `public/index.html` and its logic in `public/app.js`.
 
 ### Android packaging (TWA)
 See `twa/README.md` for Bubblewrap steps and manifest template.
+Prepared:
+- Package ID: `com.qxyx.weijin`
+- `public/.well-known/assetlinks.json` generated
+- `public/icon-192.png` / `public/icon-512.png` generated
+- keystore: `twa/keystore.p12` (PKCS12; keep the password locally)
