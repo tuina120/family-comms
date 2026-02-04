@@ -298,13 +298,22 @@ export class Room extends DurableObject {
         return;
       }
       case "call": {
-        this.broadcast({
+        const targetName =
+          typeof data.to === "string" ? data.to.trim().slice(0, MAX_NAME_LEN) : "";
+        const payload = {
           type: "call",
           id: info.id,
           name: info.name,
           ts: Date.now(),
-        }, ws);
-        this.notifyOffline(info.name).catch(() => {});
+          to: targetName || null,
+        };
+        if (targetName) {
+          this.sendToName(targetName, payload, ws);
+          this.notifyOffline(info.name, targetName).catch(() => {});
+        } else {
+          this.broadcast(payload, ws);
+          this.notifyOffline(info.name).catch(() => {});
+        }
         return;
       }
       default: {
@@ -334,6 +343,18 @@ export class Room extends DurableObject {
     for (const ws of this.ctx.getWebSockets()) {
       if (ws === except) continue;
       this.safeSendRaw(ws, payload);
+    }
+  }
+
+  sendToName(name, message, except) {
+    const target = name.toLowerCase();
+    const payload = JSON.stringify(message);
+    for (const ws of this.ctx.getWebSockets()) {
+      if (ws === except) continue;
+      const info = ws.deserializeAttachment();
+      if (info && info.name && info.name.toLowerCase() === target) {
+        this.safeSendRaw(ws, payload);
+      }
     }
   }
 
@@ -388,7 +409,7 @@ export class Room extends DurableObject {
     return names;
   }
 
-  async notifyOffline(callerName) {
+  async notifyOffline(callerName, targetName = null) {
     const vapid = this.getVapidConfig();
     if (!vapid) return;
 
@@ -404,6 +425,7 @@ export class Room extends DurableObject {
       if (!record || !record.endpoint) continue;
       const name = record.name ? String(record.name).toLowerCase() : "";
       if (name && onlineNames.has(name)) continue;
+      if (targetName && name && name !== targetName.toLowerCase()) continue;
 
       const res = await this.sendWebPush(record, vapid);
       if (res && (res.status === 404 || res.status === 410)) {

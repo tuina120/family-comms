@@ -379,6 +379,19 @@ button:disabled {
   border: 1px solid var(--border);
 }
 
+.participant-status {
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.participant-call {
+  border: 1px solid var(--border);
+  background: white;
+  padding: 4px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+}
+
 .participant-pill.offline {
   opacity: 0.6;
 }

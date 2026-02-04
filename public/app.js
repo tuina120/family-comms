@@ -55,7 +55,10 @@ const i18n = {
     label_you: "You",
     panel_video: "Video",
     panel_chat: "Chat",
+    call_all_button: "Call all",
     call_button: "Call",
+    roster_online: "Online",
+    roster_offline: "Wake",
     placeholder_name: "Your name",
     placeholder_room: "Family room",
     placeholder_passcode: "Family code",
@@ -88,7 +91,8 @@ const i18n = {
     msg_media_denied: "Camera/microphone permission denied.",
     msg_invite_copied: "Invite link copied.",
     msg_copy_failed: "Copy failed. Please select and copy the link.",
-    msg_call_sent: "Calling everyone who is online.",
+    msg_call_sent: "Calling family.",
+    msg_call_sent_to: "Calling {name}.",
     msg_no_one_online: "No one else is online right now.",
     msg_incoming_call: "{name} is calling you.",
     error_passcode_required: "Passcode required.",
@@ -108,7 +112,10 @@ const i18n = {
     label_you: "你",
     panel_video: "视频",
     panel_chat: "聊天",
+    call_all_button: "呼叫全部",
     call_button: "呼叫",
+    roster_online: "在线",
+    roster_offline: "待唤醒",
     placeholder_name: "你的名字",
     placeholder_room: "家庭房间",
     placeholder_passcode: "家庭口令",
@@ -141,7 +148,8 @@ const i18n = {
     msg_media_denied: "未允许摄像头/麦克风权限。",
     msg_invite_copied: "邀请链接已复制。",
     msg_copy_failed: "复制失败，请手动选择复制链接。",
-    msg_call_sent: "正在呼叫在线的家人。",
+    msg_call_sent: "正在呼叫家人。",
+    msg_call_sent_to: "正在呼叫 {name}。",
     msg_no_one_online: "当前没有其他人在线。",
     msg_incoming_call: "{name} 正在呼叫你。",
     error_passcode_required: "需要口令。",
@@ -637,8 +645,22 @@ function renderParticipants() {
     label.textContent = isSelf
       ? `${person.name} (${t("label_you")})`
       : person.name;
+    const status = document.createElement("span");
+    status.className = "participant-status";
+    status.textContent = isOnline ? t("roster_online") : t("roster_offline");
+    const action = document.createElement("button");
+    action.type = "button";
+    action.className = "participant-call";
+    action.textContent = t("call_button");
+    action.disabled = !state.selfId || isSelf;
+    action.addEventListener("click", (event) => {
+      event.stopPropagation();
+      sendCall(person.name);
+    });
     el.appendChild(dot);
     el.appendChild(label);
+    el.appendChild(status);
+    el.appendChild(action);
     participantsEl.appendChild(el);
   }
 
@@ -650,8 +672,12 @@ function renderParticipants() {
     dot.className = "participant-dot";
     const label = document.createElement("span");
     label.textContent = name;
+    const status = document.createElement("span");
+    status.className = "participant-status";
+    status.textContent = t("roster_online");
     el.appendChild(dot);
     el.appendChild(label);
+    el.appendChild(status);
     participantsEl.appendChild(el);
   }
   updateParticipantCount();
@@ -821,14 +847,19 @@ function sendChat(text) {
   state.ws.send(JSON.stringify({ type: "chat", text }));
 }
 
-function sendCall() {
+function sendCall(targetName) {
   if (!state.ws || state.ws.readyState !== WebSocket.OPEN) return;
-  if (state.peers.size === 0) {
-    addSystemMessage(t("msg_no_one_online"));
-    return;
+  const payload = { type: "call" };
+  if (targetName) {
+    payload.to = targetName;
+    addSystemMessage(t("msg_call_sent_to", { name: targetName }));
+  } else {
+    addSystemMessage(t("msg_call_sent"));
   }
-  state.ws.send(JSON.stringify({ type: "call" }));
-  addSystemMessage(t("msg_call_sent"));
+  if (!targetName && state.peers.size === 0) {
+    addSystemMessage(t("msg_no_one_online"));
+  }
+  state.ws.send(JSON.stringify(payload));
 }
 
 function playRing() {
@@ -900,6 +931,8 @@ function connectWebSocket() {
         state.selfId = data.id;
         addSystemMessage(t("msg_connected_room"));
         state.connecting = false;
+        joinPanel.hidden = true;
+        mainLayout.hidden = false;
         saveProfile();
         renderParticipants();
         if (invitePanel) {
