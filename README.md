@@ -38,7 +38,7 @@ bilingual switching.
 本地 `.dev.vars`：
 ```
 ROOM_PASSCODE=Sr@20050829
-ALLOWED_NAMES=Mom,Dad,Son,Daughter
+ALLOWED_NAMES=weijin,sunran,gyl,syx
 ```
 
 线上 Secret：
@@ -115,7 +115,7 @@ Use the top-right switch, or append `?lang=zh` / `?lang=en` to the URL.
 Local `.dev.vars`:
 ```
 ROOM_PASSCODE=Sr@20050829
-ALLOWED_NAMES=Mom,Dad,Son,Daughter
+ALLOWED_NAMES=weijin,sunran,gyl,syx
 ```
 
 Production secrets:

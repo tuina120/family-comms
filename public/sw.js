@@ -1,4 +1,4 @@
-const CACHE_NAME = "family-comms-v7";
+const CACHE_NAME = "family-comms-v8";
 const ASSETS = [
   "/",
   "/index.html",

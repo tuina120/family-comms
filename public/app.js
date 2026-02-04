@@ -16,6 +16,7 @@ const toggleMicBtn = document.querySelector("#toggleMic");
 const toggleCamBtn = document.querySelector("#toggleCam");
 const leaveBtn = document.querySelector("#leaveBtn");
 const participantCountEl = document.querySelector("#participantCount");
+const callBtn = document.querySelector("#callBtn");
 const participantsEl = document.querySelector("#participants");
 const invitePanel = document.querySelector("#invitePanel");
 const inviteLink = document.querySelector("#inviteLink");
@@ -51,11 +52,13 @@ const i18n = {
     label_you: "You",
     panel_video: "Video",
     panel_chat: "Chat",
+    call_button: "Call",
     placeholder_name: "Your name",
     placeholder_room: "Family room",
     placeholder_passcode: "Family code",
     join_button: "Enter",
     join_hint: "Your device will remember this name.",
+    allowed_names_hint: "Allowed names: {names}",
     invite_title: "Invite family",
     invite_copy: "Copy",
     invite_share: "Share",
@@ -76,6 +79,9 @@ const i18n = {
     msg_media_denied: "Camera/microphone permission denied.",
     msg_invite_copied: "Invite link copied.",
     msg_copy_failed: "Copy failed. Please select and copy the link.",
+    msg_call_sent: "Calling everyone who is online.",
+    msg_no_one_online: "No one else is online right now.",
+    msg_incoming_call: "{name} is calling you.",
     error_passcode_required: "Passcode required.",
     error_name_not_allowed: "Name not allowed.",
     error_join_failed: "Unable to join. Check passcode or name.",
@@ -93,11 +99,13 @@ const i18n = {
     label_you: "你",
     panel_video: "视频",
     panel_chat: "聊天",
+    call_button: "呼叫",
     placeholder_name: "你的名字",
     placeholder_room: "家庭房间",
     placeholder_passcode: "家庭口令",
     join_button: "进入",
     join_hint: "此设备只需填写一次名字。",
+    allowed_names_hint: "仅允许以下名字：{names}",
     invite_title: "邀请家人",
     invite_copy: "复制",
     invite_share: "分享",
@@ -118,6 +126,9 @@ const i18n = {
     msg_media_denied: "未允许摄像头/麦克风权限。",
     msg_invite_copied: "邀请链接已复制。",
     msg_copy_failed: "复制失败，请手动选择复制链接。",
+    msg_call_sent: "正在呼叫在线的家人。",
+    msg_no_one_online: "当前没有其他人在线。",
+    msg_incoming_call: "{name} 正在呼叫你。",
     error_passcode_required: "需要口令。",
     error_name_not_allowed: "该名字不允许使用。",
     error_join_failed: "无法加入，请检查口令或名字。",
@@ -129,7 +140,7 @@ const state = {
   selfId: null,
   name: null,
   room: null,
-  passcode: "",
+  passcode: FIXED_PASSCODE,
   localStream: null,
   micEnabled: true,
   camEnabled: true,
@@ -255,6 +266,7 @@ function setLang(lang) {
   localStorage.setItem("lang", state.lang);
   document.documentElement.lang = state.lang === "zh" ? "zh-Hans" : "en";
   updateText();
+  updateAccessUI();
   renderParticipants();
 }
 
@@ -285,7 +297,9 @@ function updateAccessUI() {
 
   if (nameHint) {
     if (Array.isArray(state.allowedNames) && state.allowedNames.length) {
-      nameHint.textContent = `Allowed names: ${state.allowedNames.join(", ")}`;
+      nameHint.textContent = t("allowed_names_hint", {
+        names: state.allowedNames.join(", "),
+      });
       nameHint.hidden = false;
     } else {
       nameHint.textContent = "";
@@ -656,6 +670,44 @@ function sendChat(text) {
   state.ws.send(JSON.stringify({ type: "chat", text }));
 }
 
+function sendCall() {
+  if (!state.ws || state.ws.readyState !== WebSocket.OPEN) return;
+  if (state.peers.size === 0) {
+    addSystemMessage(t("msg_no_one_online"));
+    return;
+  }
+  state.ws.send(JSON.stringify({ type: "call" }));
+  addSystemMessage(t("msg_call_sent"));
+}
+
+function playRing() {
+  try {
+    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+    if (!AudioCtx) return;
+    const ctx = new AudioCtx();
+    const now = ctx.currentTime;
+    const gains = [];
+    for (let i = 0; i < 3; i += 1) {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = "sine";
+      osc.frequency.value = 740;
+      const start = now + i * 0.45;
+      const end = start + 0.2;
+      gain.gain.setValueAtTime(0.0001, start);
+      gain.gain.exponentialRampToValueAtTime(0.3, start + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.0001, end);
+      osc.connect(gain).connect(ctx.destination);
+      osc.start(start);
+      osc.stop(end + 0.02);
+      gains.push(gain);
+    }
+    setTimeout(() => ctx.close(), 1500);
+  } catch {
+    // Ignore audio playback errors.
+  }
+}
+
 function connectWebSocket() {
   const url = new URL("/ws", window.location.href);
   url.searchParams.set("room", state.room);
@@ -744,6 +796,12 @@ function connectWebSocket() {
       }
       case "signal": {
         await handleSignal(data);
+        return;
+      }
+      case "call": {
+        const fromName = data.name || "Family";
+        addSystemMessage(t("msg_incoming_call", { name: fromName }));
+        playRing();
         return;
       }
       default:
@@ -919,6 +977,12 @@ if (copyInviteBtn) {
 if (shareInviteBtn) {
   shareInviteBtn.addEventListener("click", () => {
     shareInvite();
+  });
+}
+
+if (callBtn) {
+  callBtn.addEventListener("click", () => {
+    sendCall();
   });
 }
 

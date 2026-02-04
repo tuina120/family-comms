@@ -3,6 +3,8 @@ import { DurableObject } from "cloudflare:workers";
 const MAX_PEERS = 4;
 const MAX_NAME_LEN = 32;
 const MAX_MSG_LEN = 1000;
+const DEFAULT_ALLOWED_NAMES = ["weijin", "sunran", "gyl", "syx"];
+const DEFAULT_PASSCODE = "Sr@20050829";
 
 const textDecoder = new TextDecoder();
 
@@ -18,8 +20,9 @@ function parseAllowedNames(raw) {
   const entries = parseList(raw)
     .map((name) => name.slice(0, MAX_NAME_LEN))
     .map((name) => name.toLowerCase());
-  if (!entries.length) return null;
-  return new Set(entries);
+  const fallback = DEFAULT_ALLOWED_NAMES.map((name) => name.toLowerCase());
+  const list = entries.length ? entries : fallback;
+  return new Set(list);
 }
 
 function safeParseJson(message) {
@@ -59,7 +62,7 @@ export class Room extends DurableObject {
     const name = normalizeName(url.searchParams.get("name"));
     const passcode = url.searchParams.get("pass") || "";
 
-    const requiredPasscode = this.env.ROOM_PASSCODE;
+    const requiredPasscode = this.env.ROOM_PASSCODE || DEFAULT_PASSCODE;
     if (requiredPasscode && passcode !== requiredPasscode) {
       return new Response("Invalid passcode", { status: 403 });
     }
@@ -168,6 +171,15 @@ export class Room extends DurableObject {
       }
       case "ping": {
         this.safeSend(ws, { type: "pong", ts: Date.now() });
+        return;
+      }
+      case "call": {
+        this.broadcast({
+          type: "call",
+          id: info.id,
+          name: info.name,
+          ts: Date.now(),
+        }, ws);
         return;
       }
       default: {
