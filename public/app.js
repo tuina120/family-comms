@@ -24,6 +24,8 @@ const copyInviteBtn = document.querySelector("#copyInvite");
 const shareInviteBtn = document.querySelector("#shareInvite");
 const includePasscodeCheckbox = document.querySelector("#includePasscode");
 const inviteQr = document.querySelector("#inviteQr");
+const notifyBtn = document.querySelector("#notifyBtn");
+const notifyStatus = document.querySelector("#notifyStatus");
 const messagesEl = document.querySelector("#messages");
 const chatForm = document.querySelector("#chatForm");
 const chatInput = document.querySelector("#chatInput");
@@ -64,6 +66,12 @@ const i18n = {
     invite_share: "Share",
     invite_include_passcode: "Include passcode",
     invite_qr_hint: "QR is generated from the invite link.",
+    notify_enable: "Enable notifications",
+    notify_enabled: "Notifications enabled",
+    notify_denied: "Notifications denied",
+    notify_not_supported: "Notifications not supported",
+    notify_config_missing: "Notifications not configured",
+    notify_saved: "Notifications saved",
     chat_placeholder: "Type a message",
     send_button: "Send",
     mic_mute: "Mute",
@@ -111,6 +119,12 @@ const i18n = {
     invite_share: "分享",
     invite_include_passcode: "包含口令",
     invite_qr_hint: "二维码基于邀请链接生成。",
+    notify_enable: "开启通知",
+    notify_enabled: "已开启通知",
+    notify_denied: "通知被拒绝",
+    notify_not_supported: "当前不支持通知",
+    notify_config_missing: "通知未配置",
+    notify_saved: "已保存通知设置",
     chat_placeholder: "输入消息",
     send_button: "发送",
     mic_mute: "静音",
@@ -151,9 +165,11 @@ const state = {
   allowedNames: null,
   maxPeers: 4,
   iceServers: [{ urls: DEFAULT_STUN_URLS }],
+  vapidPublicKey: null,
   lang: "en",
   statusKey: "status_offline",
   joinErrorKey: "",
+  notifyStatusKey: "",
 };
 
 function setStatus(text) {
@@ -199,6 +215,12 @@ function setJoinErrorText(text) {
 function setJoinErrorKey(key) {
   state.joinErrorKey = key || "";
   setJoinErrorText(key ? t(key) : "");
+}
+
+function setNotifyStatus(key) {
+  if (!notifyStatus) return;
+  state.notifyStatusKey = key || "";
+  notifyStatus.textContent = state.notifyStatusKey ? t(state.notifyStatusKey) : "";
 }
 
 function updateLangButtons() {
@@ -248,6 +270,9 @@ function updateText() {
     });
   updateLangButtons();
   updateDynamicLabels();
+  if (state.notifyStatusKey) {
+    setNotifyStatus(state.notifyStatusKey);
+  }
 }
 
 function detectLang() {
@@ -376,6 +401,87 @@ async function shareInvite() {
   await copyInvite();
 }
 
+function base64UrlToUint8Array(base64Url) {
+  const padding = "=".repeat((4 - (base64Url.length % 4)) % 4);
+  const base64 = (base64Url + padding).replace(/-/g, "+").replace(/_/g, "/");
+  const raw = atob(base64);
+  const output = new Uint8Array(raw.length);
+  for (let i = 0; i < raw.length; i += 1) {
+    output[i] = raw.charCodeAt(i);
+  }
+  return output;
+}
+
+async function sendSubscription(subscription) {
+  if (!state.name) return;
+  const res = await fetch(`/subscribe?room=${encodeURIComponent(state.room)}`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      name: state.name,
+      subscription,
+      ua: navigator.userAgent,
+    }),
+  });
+  if (!res.ok) {
+    throw new Error("subscribe failed");
+  }
+}
+
+async function enableNotifications() {
+  if (
+    !("Notification" in window) ||
+    !("serviceWorker" in navigator) ||
+    !("PushManager" in window)
+  ) {
+    setNotifyStatus("notify_not_supported");
+    return;
+  }
+  if (!state.vapidPublicKey) {
+    setNotifyStatus("notify_config_missing");
+    return;
+  }
+
+  let permission = Notification.permission;
+  if (permission === "default") {
+    permission = await Notification.requestPermission();
+  }
+  if (permission !== "granted") {
+    setNotifyStatus("notify_denied");
+    return;
+  }
+
+  const reg = await navigator.serviceWorker.ready;
+  let subscription = await reg.pushManager.getSubscription();
+  if (!subscription) {
+    const key = base64UrlToUint8Array(state.vapidPublicKey);
+    subscription = await reg.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey: key,
+    });
+  }
+  await sendSubscription(subscription);
+  setNotifyStatus("notify_enabled");
+}
+
+async function refreshNotificationStatus() {
+  if (
+    !("Notification" in window) ||
+    !("serviceWorker" in navigator) ||
+    !("PushManager" in window)
+  ) {
+    return;
+  }
+  if (Notification.permission !== "granted") {
+    return;
+  }
+  const reg = await navigator.serviceWorker.ready;
+  const subscription = await reg.pushManager.getSubscription();
+  if (subscription) {
+    setNotifyStatus("notify_enabled");
+  }
+}
+
 function loadProfile() {
   const storedName = localStorage.getItem(STORAGE_KEYS.name) || "";
   const storedRoom = localStorage.getItem(STORAGE_KEYS.room) || "family";
@@ -445,6 +551,9 @@ async function loadConfig() {
     if (iceServers.length) {
       state.iceServers = iceServers;
     }
+    if (data.vapidPublicKey) {
+      state.vapidPublicKey = data.vapidPublicKey;
+    }
     state.configLoaded = true;
     updateAccessUI();
     updateInvite();
@@ -487,6 +596,16 @@ function updateParticipantCount() {
   participantCountEl.textContent = `${total}/${state.maxPeers}`;
 }
 
+function updateNotifyButton() {
+  if (!notifyBtn) return;
+  notifyBtn.disabled = !state.name;
+}
+
+function updateCallButton() {
+  if (!callBtn) return;
+  callBtn.disabled = !state.selfId;
+}
+
 function renderParticipants() {
   participantsEl.innerHTML = "";
   const pills = [];
@@ -506,6 +625,8 @@ function renderParticipants() {
     participantsEl.appendChild(el);
   }
   updateParticipantCount();
+  updateNotifyButton();
+  updateCallButton();
 }
 
 function createRemoteTile(peer) {
@@ -922,6 +1043,9 @@ setLang(detectLang());
 const stored = loadProfile();
 loadConfig();
 updateText();
+updateNotifyButton();
+updateCallButton();
+refreshNotificationStatus();
 
 if (stored.storedName) {
   joinRoom();
@@ -977,6 +1101,14 @@ if (copyInviteBtn) {
 if (shareInviteBtn) {
   shareInviteBtn.addEventListener("click", () => {
     shareInvite();
+  });
+}
+
+if (notifyBtn) {
+  notifyBtn.addEventListener("click", () => {
+    enableNotifications().catch(() => {
+      setNotifyStatus("notify_config_missing");
+    });
   });
 }
 

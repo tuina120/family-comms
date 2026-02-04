@@ -52,6 +52,25 @@ wrangler secret put ALLOWED_NAMES
 - 如需重置名字：访问 `call.qxyx.net/?reset=1`
 - 如需显示房间/口令输入：访问 `call.qxyx.net/?setup=1`
 
+### 离线呼叫通知（Web Push）
+说明：
+- iPhone 需要 **添加到主屏幕的 PWA** 才能接收通知（iOS 16.4+）
+- 需要配置 VAPID 密钥
+ - 进入房间后点击 “开启通知”
+
+生成 VAPID 密钥（推荐用 Node）：
+```
+node -e "const crypto=require('crypto').webcrypto;const b64u=b=>Buffer.from(b).toString('base64').replace(/\\+/g,'-').replace(/\\//g,'_').replace(/=+$/,'');(async()=>{const k=await crypto.subtle.generateKey({name:'ECDSA',namedCurve:'P-256'},true,['sign','verify']);const pub=await crypto.subtle.exportKey('raw',k.publicKey);const jwk=await crypto.subtle.exportKey('jwk',k.privateKey);console.log('VAPID_PUBLIC_KEY='+b64u(new Uint8Array(pub)));console.log('VAPID_PRIVATE_KEY='+jwk.d);})();"
+```
+
+设置 Secret：
+```
+wrangler secret put VAPID_PUBLIC_KEY
+wrangler secret put VAPID_PRIVATE_KEY
+wrangler secret put VAPID_SUBJECT
+```
+`VAPID_SUBJECT` 建议使用 `mailto:you@example.com`
+
 ### TURN / ICE（可选）
 ```
 TURN_URLS=turn:turn.example.com:3478?transport=udp,turn:turn.example.com:3478?transport=tcp
@@ -128,6 +147,25 @@ wrangler secret put ALLOWED_NAMES
 - The app remembers the name and auto-enters `call.qxyx.net`
 - Reset name: `call.qxyx.net/?reset=1`
 - Show room/passcode fields: `call.qxyx.net/?setup=1`
+
+### Offline call notifications (Web Push)
+Notes:
+- iPhone requires **Add to Home Screen** PWA (iOS 16.4+)
+- VAPID keys are required
+ - Click “Enable notifications” after joining
+
+Generate VAPID keys (Node):
+```
+node -e "const crypto=require('crypto').webcrypto;const b64u=b=>Buffer.from(b).toString('base64').replace(/\\+/g,'-').replace(/\\//g,'_').replace(/=+$/,'');(async()=>{const k=await crypto.subtle.generateKey({name:'ECDSA',namedCurve:'P-256'},true,['sign','verify']);const pub=await crypto.subtle.exportKey('raw',k.publicKey);const jwk=await crypto.subtle.exportKey('jwk',k.privateKey);console.log('VAPID_PUBLIC_KEY='+b64u(new Uint8Array(pub)));console.log('VAPID_PRIVATE_KEY='+jwk.d);})();"
+```
+
+Set secrets:
+```
+wrangler secret put VAPID_PUBLIC_KEY
+wrangler secret put VAPID_PRIVATE_KEY
+wrangler secret put VAPID_SUBJECT
+```
+Use `mailto:you@example.com` for `VAPID_SUBJECT`.
 
 ### TURN / ICE (optional)
 ```

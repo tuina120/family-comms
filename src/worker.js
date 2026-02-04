@@ -38,6 +38,7 @@ function buildConfig(env) {
     maxPeers: MAX_PEERS,
     stunUrls: resolvedStun,
     turn,
+    vapidPublicKey: env.VAPID_PUBLIC_KEY || null,
   };
 }
 
@@ -55,6 +56,13 @@ export default {
     const url = new URL(request.url);
     if (url.pathname === "/config") {
       return jsonResponse(buildConfig(env));
+    }
+
+    if (url.pathname === "/subscribe") {
+      const room = (url.searchParams.get("room") || "family").slice(0, 64);
+      const id = env.ROOM.idFromName(room);
+      const stub = env.ROOM.get(id);
+      return stub.fetch(request);
     }
 
     if (url.pathname === "/ws") {

@@ -1,4 +1,4 @@
-const CACHE_NAME = "family-comms-v9";
+const CACHE_NAME = "family-comms-v10";
 const ASSETS = [
   "/",
   "/index.html",
@@ -30,5 +30,34 @@ self.addEventListener("fetch", (event) => {
   if (event.request.method !== "GET") return;
   event.respondWith(
     caches.match(event.request).then((cached) => cached || fetch(event.request))
+  );
+});
+
+self.addEventListener("push", (event) => {
+  const data = event.data ? event.data.json() : null;
+  const title = (data && data.title) || "惟谨家庭";
+  const body =
+    (data && data.body) || "家人正在呼叫你 / Family is calling you";
+  const options = {
+    body,
+    icon: "/icon-192.png",
+    badge: "/icon-192.png",
+    data: { url: "/" },
+  };
+  event.waitUntil(self.registration.showNotification(title, options));
+});
+
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  const target = (event.notification.data && event.notification.data.url) || "/";
+  event.waitUntil(
+    clients.matchAll({ type: "window", includeUncontrolled: true }).then((list) => {
+      for (const client of list) {
+        if ("focus" in client) {
+          return client.focus();
+        }
+      }
+      return clients.openWindow(target);
+    })
   );
 });

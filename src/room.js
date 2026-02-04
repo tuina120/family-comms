@@ -4,8 +4,10 @@ const MAX_PEERS = 4;
 const MAX_NAME_LEN = 32;
 const MAX_MSG_LEN = 1000;
 const DEFAULT_PASSCODE = "Sr@20050829";
+const VAPID_EXP_SECONDS = 12 * 60 * 60;
 
 const textDecoder = new TextDecoder();
+const textEncoder = new TextEncoder();
 
 function parseList(raw) {
   if (!raw) return [];
@@ -43,6 +45,88 @@ function normalizeText(text) {
   return trimmed;
 }
 
+function base64UrlEncode(bytes) {
+  let binary = "";
+  for (const b of bytes) {
+    binary += String.fromCharCode(b);
+  }
+  return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
+}
+
+function base64UrlDecode(value) {
+  const padded = value.replace(/-/g, "+").replace(/_/g, "/");
+  const pad = "=".repeat((4 - (padded.length % 4)) % 4);
+  const binary = atob(padded + pad);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i += 1) {
+    bytes[i] = binary.charCodeAt(i);
+  }
+  return bytes;
+}
+
+function getAudience(endpoint) {
+  const url = new URL(endpoint);
+  return `${url.protocol}//${url.host}`;
+}
+
+async function createVapidToken({ audience, subject, publicKey, privateKey }) {
+  const pubBytes = base64UrlDecode(publicKey);
+  const privBytes = base64UrlDecode(privateKey);
+  const x = base64UrlEncode(pubBytes.slice(1, 33));
+  const y = base64UrlEncode(pubBytes.slice(33, 65));
+  const d = base64UrlEncode(privBytes);
+
+  const jwk = {
+    kty: "EC",
+    crv: "P-256",
+    x,
+    y,
+    d,
+    ext: true,
+    key_ops: ["sign"],
+  };
+
+  const key = await crypto.subtle.importKey(
+    "jwk",
+    jwk,
+    { name: "ECDSA", namedCurve: "P-256" },
+    false,
+    ["sign"],
+  );
+
+  const header = { typ: "JWT", alg: "ES256" };
+  const payload = {
+    aud: audience,
+    exp: Math.floor(Date.now() / 1000) + VAPID_EXP_SECONDS,
+    sub: subject,
+  };
+  const encodedHeader = base64UrlEncode(
+    textEncoder.encode(JSON.stringify(header)),
+  );
+  const encodedPayload = base64UrlEncode(
+    textEncoder.encode(JSON.stringify(payload)),
+  );
+  const unsignedToken = `${encodedHeader}.${encodedPayload}`;
+  const signature = await crypto.subtle.sign(
+    { name: "ECDSA", hash: "SHA-256" },
+    key,
+    textEncoder.encode(unsignedToken),
+  );
+  const encodedSig = base64UrlEncode(new Uint8Array(signature));
+  return `${unsignedToken}.${encodedSig}`;
+}
+
+function isValidSubscription(subscription) {
+  return (
+    subscription &&
+    typeof subscription.endpoint === "string" &&
+    subscription.endpoint.length > 0 &&
+    subscription.keys &&
+    typeof subscription.keys.p256dh === "string" &&
+    typeof subscription.keys.auth === "string"
+  );
+}
+
 export class Room extends DurableObject {
   constructor(ctx, env) {
     super(ctx, env);
@@ -50,13 +134,55 @@ export class Room extends DurableObject {
     this.env = env;
   }
 
+  async handleSubscribe(request) {
+    let data;
+    try {
+      data = await request.json();
+    } catch {
+      return new Response("Invalid JSON", { status: 400 });
+    }
+
+    const name = normalizeName(data && data.name);
+    const subscription = data && data.subscription;
+    if (!isValidSubscription(subscription)) {
+      return new Response("Invalid subscription", { status: 400 });
+    }
+
+    const allowedNames = parseAllowedNames(this.env.ALLOWED_NAMES);
+    if (allowedNames && !allowedNames.has(name.toLowerCase())) {
+      return new Response("Name not allowed", { status: 403 });
+    }
+
+    const key = `sub:${subscription.endpoint}`;
+    const record = {
+      endpoint: subscription.endpoint,
+      p256dh: subscription.keys.p256dh,
+      auth: subscription.keys.auth,
+      name,
+      ua: data && data.ua ? String(data.ua).slice(0, 200) : "",
+      updatedAt: Date.now(),
+    };
+    await this.ctx.storage.put(key, record);
+
+    return new Response(JSON.stringify({ ok: true }), {
+      headers: { "content-type": "application/json" },
+    });
+  }
+
   async fetch(request) {
+    const url = new URL(request.url);
+    if (url.pathname === "/subscribe") {
+      if (request.method !== "POST") {
+        return new Response("Method Not Allowed", { status: 405 });
+      }
+      return this.handleSubscribe(request);
+    }
+
     const upgrade = request.headers.get("Upgrade");
     if (!upgrade || upgrade.toLowerCase() !== "websocket") {
       return new Response("Expected WebSocket", { status: 426 });
     }
 
-    const url = new URL(request.url);
     const name = normalizeName(url.searchParams.get("name"));
     const passcode = url.searchParams.get("pass") || "";
 
@@ -178,6 +304,7 @@ export class Room extends DurableObject {
           name: info.name,
           ts: Date.now(),
         }, ws);
+        this.notifyOffline(info.name).catch(() => {});
         return;
       }
       default: {
@@ -240,5 +367,68 @@ export class Room extends DurableObject {
       }
     }
     return false;
+  }
+
+  getVapidConfig() {
+    const publicKey = this.env.VAPID_PUBLIC_KEY;
+    const privateKey = this.env.VAPID_PRIVATE_KEY;
+    const subject = this.env.VAPID_SUBJECT;
+    if (!publicKey || !privateKey || !subject) return null;
+    return { publicKey, privateKey, subject };
+  }
+
+  getOnlineNames() {
+    const names = new Set();
+    for (const ws of this.ctx.getWebSockets()) {
+      const info = ws.deserializeAttachment();
+      if (info && info.name) {
+        names.add(info.name.toLowerCase());
+      }
+    }
+    return names;
+  }
+
+  async notifyOffline(callerName) {
+    const vapid = this.getVapidConfig();
+    if (!vapid) return;
+
+    const onlineNames = this.getOnlineNames();
+    if (callerName) {
+      onlineNames.add(callerName.toLowerCase());
+    }
+
+    const subs = await this.ctx.storage.list({ prefix: "sub:" });
+    if (!subs.size) return;
+
+    for (const [key, record] of subs.entries()) {
+      if (!record || !record.endpoint) continue;
+      const name = record.name ? String(record.name).toLowerCase() : "";
+      if (name && onlineNames.has(name)) continue;
+
+      const res = await this.sendWebPush(record, vapid);
+      if (res && (res.status === 404 || res.status === 410)) {
+        await this.ctx.storage.delete(key);
+      }
+    }
+  }
+
+  async sendWebPush(record, vapid) {
+    try {
+      const audience = getAudience(record.endpoint);
+      const token = await createVapidToken({
+        audience,
+        subject: vapid.subject,
+        publicKey: vapid.publicKey,
+        privateKey: vapid.privateKey,
+      });
+      const headers = {
+        TTL: "60",
+        Authorization: `vapid t=${token}, k=${vapid.publicKey}`,
+        "Crypto-Key": `p256ecdsa=${vapid.publicKey}`,
+      };
+      return await fetch(record.endpoint, { method: "POST", headers });
+    } catch {
+      return null;
+    }
   }
 }
