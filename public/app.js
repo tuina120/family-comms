@@ -39,6 +39,7 @@ const STORAGE_KEYS = {
 };
 
 const DEFAULT_STUN_URLS = ["stun:stun.l.google.com:19302"];
+const FAMILY_NAMES = ["weijin", "sunran", "gyl", "syx"];
 
 const i18n = {
   en: {
@@ -594,7 +595,8 @@ function updateParticipantCount() {
   if (!participantCountEl) return;
   const base = state.name ? 1 : 0;
   const total = base + state.peers.size;
-  participantCountEl.textContent = `${total}/${state.maxPeers}`;
+  const max = FAMILY_NAMES.length || state.maxPeers;
+  participantCountEl.textContent = `${total}/${max}`;
 }
 
 function updateNotifyButton() {
@@ -609,20 +611,47 @@ function updateCallButton() {
 
 function renderParticipants() {
   participantsEl.innerHTML = "";
-  const pills = [];
+  const onlineNames = new Set();
   if (state.name) {
-    pills.push({
-      id: state.selfId || "self",
-      name: `${state.name} (${t("label_you")})`,
-    });
+    onlineNames.add(state.name.toLowerCase());
   }
   for (const peer of state.peers.values()) {
-    pills.push({ id: peer.id, name: peer.name });
+    if (peer.name) onlineNames.add(peer.name.toLowerCase());
   }
-  for (const pill of pills) {
+  const roster = FAMILY_NAMES.map((name) => ({
+    name,
+    key: name.toLowerCase(),
+  }));
+  const rosterKeys = new Set(roster.map((item) => item.key));
+
+  for (const person of roster) {
     const el = document.createElement("div");
-    el.className = "participant-pill";
-    el.textContent = pill.name;
+    const isOnline = onlineNames.has(person.key);
+    const isSelf = state.name && state.name.toLowerCase() === person.key;
+    el.className = `participant-pill ${isOnline ? "online" : "offline"}${
+      isSelf ? " self" : ""
+    }`;
+    const dot = document.createElement("span");
+    dot.className = "participant-dot";
+    const label = document.createElement("span");
+    label.textContent = isSelf
+      ? `${person.name} (${t("label_you")})`
+      : person.name;
+    el.appendChild(dot);
+    el.appendChild(label);
+    participantsEl.appendChild(el);
+  }
+
+  for (const name of onlineNames) {
+    if (rosterKeys.has(name)) continue;
+    const el = document.createElement("div");
+    el.className = "participant-pill online";
+    const dot = document.createElement("span");
+    dot.className = "participant-dot";
+    const label = document.createElement("span");
+    label.textContent = name;
+    el.appendChild(dot);
+    el.appendChild(label);
     participantsEl.appendChild(el);
   }
   updateParticipantCount();

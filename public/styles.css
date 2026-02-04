@@ -281,8 +281,8 @@ button:disabled {
 }
 
 .participants {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
   gap: 8px;
   font-size: 12px;
   color: var(--muted);
@@ -370,10 +370,33 @@ button:disabled {
 }
 
 .participant-pill {
-  padding: 4px 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
   border-radius: 999px;
   background: var(--bg-soft);
   border: 1px solid var(--border);
+}
+
+.participant-pill.offline {
+  opacity: 0.6;
+}
+
+.participant-pill.self {
+  border-color: var(--accent);
+  color: var(--text);
+}
+
+.participant-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: #9ca3af;
+}
+
+.participant-pill.online .participant-dot {
+  background: #16a34a;
 }
 
 .messages {
