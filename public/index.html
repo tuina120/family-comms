@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#f6f2eb" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <link rel="stylesheet" href="/styles.css" />
+    <title>惟谨家庭</title>
+  </head>
+  <body>
+    <div class="page">
+      <header class="topbar">
+        <div class="brand" data-i18n="app_name">Family Comms</div>
+        <div class="top-actions">
+          <div class="lang-toggle" role="group" aria-label="Language">
+            <button type="button" id="langZh" data-lang="zh">中文</button>
+            <button type="button" id="langEn" data-lang="en">EN</button>
+          </div>
+          <div class="status" id="status">Offline</div>
+        </div>
+      </header>
+
+      <section class="join" id="joinPanel">
+        <div class="join-card">
+          <div class="join-title" data-i18n="join_title">
+            Private family room
+          </div>
+          <label class="field">
+            <span data-i18n="label_name">Name</span>
+            <input
+              id="nameInput"
+              autocomplete="name"
+              placeholder="Your name"
+              data-i18n-placeholder="placeholder_name"
+              list="nameOptions"
+            />
+            <datalist id="nameOptions"></datalist>
+          </label>
+          <div class="join-hint" id="nameHint" hidden></div>
+          <label class="field">
+            <span data-i18n="label_room">Room</span>
+            <input
+              id="roomInput"
+              autocomplete="off"
+              value="family"
+              placeholder="Family room"
+              data-i18n-placeholder="placeholder_room"
+            />
+          </label>
+          <label class="field" id="passcodeField" hidden>
+            <span data-i18n="label_passcode">Passcode</span>
+            <input
+              id="passcodeInput"
+              type="password"
+              autocomplete="one-time-code"
+              placeholder="Family code"
+              data-i18n-placeholder="placeholder_passcode"
+            />
+          </label>
+          <div class="join-error" id="joinError" hidden></div>
+          <button id="joinBtn" class="primary" data-i18n="join_button">
+            Join & Start
+          </button>
+          <div class="join-hint" data-i18n="join_hint">
+            Share the same room name with your family.
+          </div>
+        </div>
+      </section>
+
+      <main class="layout" id="mainLayout" hidden>
+        <section class="video-panel">
+          <div class="videos" id="videoGrid">
+            <div class="video-tile local">
+              <video id="localVideo" autoplay playsinline muted></video>
+              <div class="label">You</div>
+            </div>
+          </div>
+          <div class="controls">
+            <button id="toggleMic">Mute</button>
+            <button id="toggleCam">Camera Off</button>
+            <button id="leaveBtn" class="danger" data-i18n="leave">
+              Leave
+            </button>
+          </div>
+        </section>
+
+        <section class="chat-panel">
+          <div class="participants" id="participants"></div>
+          <div class="invite" id="invitePanel" hidden>
+            <div class="invite-title" data-i18n="invite_title">
+              Invite family
+            </div>
+            <div class="invite-row">
+              <input id="inviteLink" readonly />
+              <button id="copyInvite" data-i18n="invite_copy">Copy</button>
+            </div>
+            <div class="invite-actions">
+              <label class="checkbox">
+                <input type="checkbox" id="includePasscode" />
+                <span data-i18n="invite_include_passcode">Include passcode</span>
+              </label>
+              <button id="shareInvite" data-i18n="invite_share">Share</button>
+            </div>
+            <div class="invite-qr">
+              <img
+                id="inviteQr"
+                alt="Invite QR code"
+                loading="lazy"
+                referrerpolicy="no-referrer"
+              />
+            </div>
+            <div class="join-hint" data-i18n="invite_qr_hint">
+              QR is generated from the invite link.
+            </div>
+          </div>
+          <div class="messages" id="messages"></div>
+          <form class="chat-form" id="chatForm">
+            <input
+              id="chatInput"
+              autocomplete="off"
+              placeholder="Type a message"
+              data-i18n-placeholder="chat_placeholder"
+            />
+            <button type="submit" class="primary" data-i18n="send_button">
+              Send
+            </button>
+          </form>
+        </section>
+      </main>
+    </div>
+
+    <script src="/app.js" defer></script>
+  </body>
+</html>

@@ -1,0 +1,135 @@
+# 惟谨家庭 / Family Comms (Cloudflare Workers)
+
+中文说明与英文说明都在本文件中，界面支持中英切换。
+
+This README includes both Chinese and English sections, and the UI supports
+bilingual switching.
+
+## 中文说明
+
+惟谨家庭是一个 4 人家庭通讯站，支持文字聊天、语音和视频通话。
+
+### 功能
+- WebRTC 语音/视频（最多 4 人）
+- Durable Objects + WebSocket 信令
+- 房间口令/白名单（可选）
+- 单名字单设备限制
+- 手机浏览器适配 + PWA
+- 中英文界面切换（右上角）
+
+### 本地开发
+1. 安装 Wrangler
+2. 运行 `wrangler dev`
+3. 多个设备访问同一房间名
+
+### 语言切换
+右上角切换语言，或使用 `?lang=zh` / `?lang=en`。
+
+### 部署到 Cloudflare Workers
+1. 运行 `wrangler deploy`
+2. 在 Cloudflare 控制台绑定自定义域名 `call.qxyx.net`
+
+### 访问控制（可选）
+- `ROOM_PASSCODE`：进入房间的口令
+- `ALLOWED_NAMES`：允许的名字列表（逗号分隔）
+
+本地 `.dev.vars`：
+```
+ROOM_PASSCODE=yourcode
+ALLOWED_NAMES=Mom,Dad,Son,Daughter
+```
+
+线上 Secret：
+```
+wrangler secret put ROOM_PASSCODE
+wrangler secret put ALLOWED_NAMES
+```
+
+### TURN / ICE（可选）
+```
+TURN_URLS=turn:turn.example.com:3478?transport=udp,turn:turn.example.com:3478?transport=tcp
+TURN_USERNAME=family
+TURN_CREDENTIAL=secret
+STUN_URLS=stun:stun.l.google.com:19302
+```
+
+### GitHub Actions 自动部署
+工作流：`.github/workflows/deploy.yml`
+
+需要在 GitHub Secrets 中配置：
+- `CLOUDFLARE_API_TOKEN`
+- `CLOUDFLARE_ACCOUNT_ID`
+
+默认监听 `main` 分支，可按需修改。
+
+### 邀请二维码
+二维码使用公共 QR 图片接口生成，如需避免第三方请求，可移除
+`public/index.html` 的 QR 区块，并删除 `public/app.js` 中的相关逻辑。
+
+### Android 打包（TWA）
+参见 `twa/README.md`，包含 Bubblewrap 步骤和模板。
+
+## English
+
+Family Comms is a 4-person private family communication site with chat, voice,
+and video calling.
+
+### Features
+- WebRTC voice/video (mesh up to 4 people)
+- Durable Objects + WebSocket signaling
+- Optional room passcode and name allowlist
+- Single active session per name
+- Mobile-friendly UI + PWA
+- Bilingual UI (EN/中文 toggle in the top bar)
+
+### Local dev
+1. Install Wrangler
+2. Run `wrangler dev`
+3. Join the same room name on multiple devices
+
+### Language toggle
+Use the top-right switch, or append `?lang=zh` / `?lang=en` to the URL.
+
+### Deploy to Cloudflare Workers
+1. Run `wrangler deploy`
+2. Bind the custom domain `call.qxyx.net` in Cloudflare
+
+### Access control (optional)
+- `ROOM_PASSCODE`: room passcode
+- `ALLOWED_NAMES`: comma-separated allowed names
+
+Local `.dev.vars`:
+```
+ROOM_PASSCODE=yourcode
+ALLOWED_NAMES=Mom,Dad,Son,Daughter
+```
+
+Production secrets:
+```
+wrangler secret put ROOM_PASSCODE
+wrangler secret put ALLOWED_NAMES
+```
+
+### TURN / ICE (optional)
+```
+TURN_URLS=turn:turn.example.com:3478?transport=udp,turn:turn.example.com:3478?transport=tcp
+TURN_USERNAME=family
+TURN_CREDENTIAL=secret
+STUN_URLS=stun:stun.l.google.com:19302
+```
+
+### GitHub Actions deploy
+Workflow: `.github/workflows/deploy.yml`
+
+Required GitHub secrets:
+- `CLOUDFLARE_API_TOKEN`
+- `CLOUDFLARE_ACCOUNT_ID`
+
+The workflow deploys on pushes to `main`.
+
+### Invite QR
+QR uses a public QR image API. To avoid third-party requests, remove the QR
+block in `public/index.html` and its logic in `public/app.js`.
+
+### Android packaging (TWA)
+See `twa/README.md` for Bubblewrap steps and manifest template.

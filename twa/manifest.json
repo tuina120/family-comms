@@ -1,0 +1,14 @@
+{
+  "packageId": "com.example.familycomms",
+  "host": "call.qxyx.net",
+  "name": "惟谨家庭",
+  "launcherName": "惟谨家庭",
+  "startUrl": "/?source=twa",
+  "display": "standalone",
+  "themeColor": "#f6f2eb",
+  "backgroundColor": "#f6f2eb",
+  "orientation": "portrait",
+  "iconUrl": "https://call.qxyx.net/icon-512.png",
+  "iconUrlCheck": true,
+  "enableNotifications": false
+}
