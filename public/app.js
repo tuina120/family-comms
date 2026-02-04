@@ -27,6 +27,8 @@ const includePasscodeCheckbox = document.querySelector("#includePasscode");
 const inviteQr = document.querySelector("#inviteQr");
 const notifyBtn = document.querySelector("#notifyBtn");
 const notifyStatus = document.querySelector("#notifyStatus");
+const apkRow = document.querySelector("#apkRow");
+const apkLink = document.querySelector("#apkLink");
 const callBanner = document.querySelector("#callBanner");
 const callBannerText = document.querySelector("#callBannerText");
 const callBannerDismiss = document.querySelector("#callBannerDismiss");
@@ -90,6 +92,8 @@ const i18n = {
     notify_not_supported: "Notifications not supported",
     notify_config_missing: "Notifications not configured",
     notify_saved: "Notifications saved",
+    apk_download: "Download APK",
+    apk_note: "Android app download",
     chat_placeholder: "Type a message",
     send_button: "Send",
     mic_mute: "Mute",
@@ -156,6 +160,8 @@ const i18n = {
     notify_not_supported: "当前不支持通知",
     notify_config_missing: "通知未配置",
     notify_saved: "已保存通知设置",
+    apk_download: "下载安卓 APK",
+    apk_note: "安卓 App 下载",
     chat_placeholder: "输入消息",
     send_button: "发送",
     mic_mute: "静音",
@@ -468,6 +474,9 @@ function updateText() {
   if (state.notifyStatusKey) {
     setNotifyStatus(state.notifyStatusKey);
   }
+  if (apkLink) {
+    apkLink.textContent = t("apk_download");
+  }
   if (callBanner && !callBanner.hidden && state.incomingCallFrom) {
     callBannerText.textContent = t("msg_incoming_call", {
       name: state.incomingCallFrom,
@@ -573,6 +582,10 @@ function updateInvite() {
       link,
     )}`;
     inviteQr.src = qrSrc;
+  }
+  if (apkLink) {
+    apkLink.href = "/downloads/weijin-family.apk";
+    apkLink.setAttribute("download", "weijin-family.apk");
   }
 }
 
@@ -687,6 +700,19 @@ async function refreshNotificationStatus() {
   const subscription = await reg.pushManager.getSubscription();
   if (subscription) {
     setNotifyStatus("notify_enabled");
+  }
+}
+
+async function checkApkAvailability() {
+  if (!apkRow || !apkLink) return;
+  try {
+    const res = await fetch("/downloads/weijin-family.apk", {
+      method: "HEAD",
+      cache: "no-store",
+    });
+    apkRow.hidden = !res.ok;
+  } catch {
+    apkRow.hidden = true;
   }
 }
 
@@ -1437,6 +1463,7 @@ updateText();
 updateNotifyButton();
 updateCallButton();
 refreshNotificationStatus();
+checkApkAvailability();
 setConnectedUI(false);
 
 if (stored.storedName) {
