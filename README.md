@@ -33,7 +33,7 @@ bilingual switching.
 
 ### 访问控制（可选）
 - `ROOM_PASSCODE`：进入房间的口令
-- `ALLOWED_NAMES`：允许的名字列表（逗号分隔）
+- `ALLOWED_NAMES`：允许的名字列表（逗号分隔，不设置则不限制）
 
 本地 `.dev.vars`：
 ```
@@ -110,7 +110,7 @@ Use the top-right switch, or append `?lang=zh` / `?lang=en` to the URL.
 
 ### Access control (optional)
 - `ROOM_PASSCODE`: room passcode
-- `ALLOWED_NAMES`: comma-separated allowed names
+- `ALLOWED_NAMES`: comma-separated allowed names (leave empty to allow all)
 
 Local `.dev.vars`:
 ```

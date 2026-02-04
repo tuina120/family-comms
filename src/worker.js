@@ -3,7 +3,6 @@ import { Room } from "./room.js";
 export { Room };
 
 const DEFAULT_STUN_URLS = ["stun:stun.l.google.com:19302"];
-const DEFAULT_ALLOWED_NAMES = ["weijin", "sunran", "gyl", "syx"];
 const DEFAULT_PASSCODE = "Sr@20050829";
 const MAX_PEERS = 4;
 
@@ -16,12 +15,9 @@ function parseList(raw) {
 }
 
 function buildConfig(env) {
-  const allowedNamesRaw = parseList(env.ALLOWED_NAMES).map((name) =>
+  const allowedNames = parseList(env.ALLOWED_NAMES).map((name) =>
     name.slice(0, 32),
   );
-  const allowedNames = allowedNamesRaw.length
-    ? allowedNamesRaw
-    : DEFAULT_ALLOWED_NAMES;
   const passcodeRequired = Boolean(env.ROOM_PASSCODE || DEFAULT_PASSCODE);
   const stunUrls = parseList(env.STUN_URLS);
   const resolvedStun = stunUrls.length ? stunUrls : DEFAULT_STUN_URLS;

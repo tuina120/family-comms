@@ -3,7 +3,6 @@ import { DurableObject } from "cloudflare:workers";
 const MAX_PEERS = 4;
 const MAX_NAME_LEN = 32;
 const MAX_MSG_LEN = 1000;
-const DEFAULT_ALLOWED_NAMES = ["weijin", "sunran", "gyl", "syx"];
 const DEFAULT_PASSCODE = "Sr@20050829";
 
 const textDecoder = new TextDecoder();
@@ -20,9 +19,8 @@ function parseAllowedNames(raw) {
   const entries = parseList(raw)
     .map((name) => name.slice(0, MAX_NAME_LEN))
     .map((name) => name.toLowerCase());
-  const fallback = DEFAULT_ALLOWED_NAMES.map((name) => name.toLowerCase());
-  const list = entries.length ? entries : fallback;
-  return new Set(list);
+  if (!entries.length) return null;
+  return new Set(entries);
 }
 
 function safeParseJson(message) {
