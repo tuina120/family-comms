@@ -15,6 +15,10 @@
   box-sizing: border-box;
 }
 
+[hidden] {
+  display: none !important;
+}
+
 body {
   margin: 0;
   font-family: "Noto Sans", "Segoe UI", system-ui, sans-serif;
@@ -35,6 +39,24 @@ body {
   justify-content: space-between;
   gap: 16px;
   margin-bottom: 20px;
+}
+
+.call-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 14px;
+  border-radius: 14px;
+  background: #fff7ed;
+  border: 1px solid #fed7aa;
+  box-shadow: var(--shadow);
+  margin-bottom: 16px;
+}
+
+.call-banner-text {
+  font-weight: 600;
+  color: #9a3412;
 }
 
 .top-actions {
@@ -384,6 +406,10 @@ button:disabled {
   color: var(--muted);
 }
 
+.participant-pill.online .participant-status {
+  color: #16a34a;
+}
+
 .participant-call {
   border: 1px solid var(--border);
   background: white;
@@ -399,6 +425,24 @@ button:disabled {
 .participant-pill.self {
   border-color: var(--accent);
   color: var(--text);
+}
+
+.participant-pill.calling {
+  border-color: #f97316;
+  box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.15);
+  animation: callPulse 1.2s ease-in-out infinite;
+}
+
+@keyframes callPulse {
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.02);
+  }
+  100% {
+    transform: scale(1);
+  }
 }
 
 .participant-dot {

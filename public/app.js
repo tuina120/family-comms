@@ -1,4 +1,5 @@
 const statusEl = document.querySelector("#status");
+const bodyEl = document.body;
 const joinPanel = document.querySelector("#joinPanel");
 const joinBtn = document.querySelector("#joinBtn");
 const nameInput = document.querySelector("#nameInput");
@@ -26,12 +27,16 @@ const includePasscodeCheckbox = document.querySelector("#includePasscode");
 const inviteQr = document.querySelector("#inviteQr");
 const notifyBtn = document.querySelector("#notifyBtn");
 const notifyStatus = document.querySelector("#notifyStatus");
+const callBanner = document.querySelector("#callBanner");
+const callBannerText = document.querySelector("#callBannerText");
+const callBannerDismiss = document.querySelector("#callBannerDismiss");
 const messagesEl = document.querySelector("#messages");
 const chatForm = document.querySelector("#chatForm");
 const chatInput = document.querySelector("#chatInput");
 const langZhBtn = document.querySelector("#langZh");
 const langEnBtn = document.querySelector("#langEn");
 
+const FIXED_ROOM = "family";
 const FIXED_PASSCODE = "Sr@20050829";
 const STORAGE_KEYS = {
   name: "fc_name",
@@ -57,6 +62,7 @@ const i18n = {
     panel_chat: "Chat",
     call_all_button: "Call all",
     call_button: "Call",
+    call_dismiss: "Dismiss",
     roster_online: "Online",
     roster_offline: "Wake",
     placeholder_name: "Your name",
@@ -114,6 +120,7 @@ const i18n = {
     panel_chat: "聊天",
     call_all_button: "呼叫全部",
     call_button: "呼叫",
+    call_dismiss: "关闭提示",
     roster_online: "在线",
     roster_offline: "待唤醒",
     placeholder_name: "你的名字",
@@ -179,7 +186,18 @@ const state = {
   statusKey: "status_offline",
   joinErrorKey: "",
   notifyStatusKey: "",
+  incomingCallFrom: null,
+  callBannerTimer: null,
 };
+
+function canonicalizeName(name) {
+  const trimmed = (name || "").trim().slice(0, 32);
+  if (!trimmed) return "";
+  const match = FAMILY_NAMES.find(
+    (entry) => entry.toLowerCase() === trimmed.toLowerCase(),
+  );
+  return match || trimmed;
+}
 
 function setStatus(text) {
   if (!statusEl) return;
@@ -232,6 +250,18 @@ function setNotifyStatus(key) {
   notifyStatus.textContent = state.notifyStatusKey ? t(state.notifyStatusKey) : "";
 }
 
+function setConnectedUI(connected) {
+  if (bodyEl) {
+    if (connected) {
+      bodyEl.dataset.connected = "1";
+    } else {
+      delete bodyEl.dataset.connected;
+    }
+  }
+  if (joinPanel) joinPanel.hidden = connected;
+  if (mainLayout) mainLayout.hidden = !connected;
+}
+
 function updateLangButtons() {
   if (langZhBtn) {
     langZhBtn.classList.toggle("active", state.lang === "zh");
@@ -282,6 +312,11 @@ function updateText() {
   if (state.notifyStatusKey) {
     setNotifyStatus(state.notifyStatusKey);
   }
+  if (callBanner && !callBanner.hidden && state.incomingCallFrom) {
+    callBannerText.textContent = t("msg_incoming_call", {
+      name: state.incomingCallFrom,
+    });
+  }
 }
 
 function detectLang() {
@@ -314,6 +349,9 @@ function updateAccessUI() {
   if (roomField) {
     roomField.hidden = !showSetup;
   }
+  if (roomInput) {
+    roomInput.value = FIXED_ROOM;
+  }
 
   if (includePasscodeCheckbox) {
     includePasscodeCheckbox.checked = state.passcodeRequired || hasPrefillPass;
@@ -344,7 +382,7 @@ function updateAccessUI() {
 }
 
 function buildInviteLink(includePasscode) {
-  const room = state.room || (roomInput ? roomInput.value.trim() : "family");
+  const room = FIXED_ROOM;
   const passcode =
     state.passcode || (passcodeInput ? passcodeInput.value.trim() : "");
 
@@ -493,13 +531,14 @@ async function refreshNotificationStatus() {
 }
 
 function loadProfile() {
-  const storedName = localStorage.getItem(STORAGE_KEYS.name) || "";
-  const storedRoom = localStorage.getItem(STORAGE_KEYS.room) || "family";
+  const storedNameRaw = localStorage.getItem(STORAGE_KEYS.name) || "";
+  const storedName = canonicalizeName(storedNameRaw);
+  const storedRoom = FIXED_ROOM;
   if (nameInput && !nameInput.value) {
     nameInput.value = storedName;
   }
-  if (roomInput && (!roomInput.value || roomInput.value === "family")) {
-    roomInput.value = storedRoom || "family";
+  if (roomInput) {
+    roomInput.value = storedRoom;
   }
   return { storedName: storedName.trim(), storedRoom: storedRoom.trim() };
 }
@@ -631,14 +670,18 @@ function renderParticipants() {
     key: name.toLowerCase(),
   }));
   const rosterKeys = new Set(roster.map((item) => item.key));
+  const callingKey = state.incomingCallFrom
+    ? state.incomingCallFrom.toLowerCase()
+    : null;
 
   for (const person of roster) {
     const el = document.createElement("div");
     const isOnline = onlineNames.has(person.key);
     const isSelf = state.name && state.name.toLowerCase() === person.key;
+    const isCalling = callingKey && callingKey === person.key;
     el.className = `participant-pill ${isOnline ? "online" : "offline"}${
       isSelf ? " self" : ""
-    }`;
+    }${isCalling ? " calling" : ""}`;
     const dot = document.createElement("span");
     dot.className = "participant-dot";
     const label = document.createElement("span");
@@ -890,6 +933,30 @@ function playRing() {
   }
 }
 
+function showCallBanner(name) {
+  if (!callBanner || !callBannerText) return;
+  callBannerText.textContent = t("msg_incoming_call", { name });
+  callBanner.hidden = false;
+  if (state.callBannerTimer) {
+    clearTimeout(state.callBannerTimer);
+  }
+  state.callBannerTimer = setTimeout(() => {
+    hideCallBanner();
+  }, 12000);
+}
+
+function hideCallBanner() {
+  if (callBanner) callBanner.hidden = true;
+  if (state.callBannerTimer) {
+    clearTimeout(state.callBannerTimer);
+    state.callBannerTimer = null;
+  }
+  if (state.incomingCallFrom) {
+    state.incomingCallFrom = null;
+    renderParticipants();
+  }
+}
+
 function connectWebSocket() {
   const url = new URL("/ws", window.location.href);
   url.searchParams.set("room", state.room);
@@ -931,8 +998,7 @@ function connectWebSocket() {
         state.selfId = data.id;
         addSystemMessage(t("msg_connected_room"));
         state.connecting = false;
-        joinPanel.hidden = true;
-        mainLayout.hidden = false;
+        setConnectedUI(true);
         saveProfile();
         renderParticipants();
         if (invitePanel) {
@@ -985,6 +1051,12 @@ function connectWebSocket() {
       case "call": {
         const fromName = data.name || "Family";
         addSystemMessage(t("msg_incoming_call", { name: fromName }));
+        state.incomingCallFrom = fromName;
+        renderParticipants();
+        showCallBanner(fromName);
+        if (navigator.vibrate) {
+          navigator.vibrate([200, 100, 200]);
+        }
         playRing();
         return;
       }
@@ -1004,8 +1076,11 @@ async function joinRoom() {
     await loadConfig();
   }
 
-  state.name = (nameInput.value || "Guest").trim().slice(0, 32);
-  state.room = (roomInput.value || "family").trim().slice(0, 64);
+  state.name = canonicalizeName(
+    (nameInput.value || "Guest").trim().slice(0, 32),
+  );
+  if (nameInput) nameInput.value = state.name;
+  state.room = FIXED_ROOM;
   state.passcode = FIXED_PASSCODE;
   state.selfId = null;
 
@@ -1030,8 +1105,7 @@ async function joinRoom() {
 
   await startLocalMedia();
 
-  joinPanel.hidden = true;
-  mainLayout.hidden = false;
+  setConnectedUI(true);
   setStatusKey("status_connecting");
 
   connectWebSocket();
@@ -1060,8 +1134,7 @@ function leaveRoom() {
   }
 
   setStatusKey("status_offline");
-  joinPanel.hidden = false;
-  mainLayout.hidden = true;
+  setConnectedUI(false);
   joinBtn.disabled = false;
   state.connecting = false;
   state.selfId = null;
@@ -1097,8 +1170,6 @@ const params = new URLSearchParams(window.location.search);
 if (params.get("reset") === "1") {
   clearProfile();
 }
-const urlRoom = params.get("room");
-if (urlRoom && roomInput) roomInput.value = urlRoom.slice(0, 64);
 const urlName = params.get("name");
 if (urlName && nameInput) nameInput.value = urlName.slice(0, 32);
 
@@ -1109,6 +1180,7 @@ updateText();
 updateNotifyButton();
 updateCallButton();
 refreshNotificationStatus();
+setConnectedUI(false);
 
 if (stored.storedName) {
   joinRoom();
@@ -1178,6 +1250,12 @@ if (notifyBtn) {
 if (callBtn) {
   callBtn.addEventListener("click", () => {
     sendCall();
+  });
+}
+
+if (callBannerDismiss) {
+  callBannerDismiss.addEventListener("click", () => {
+    hideCallBanner();
   });
 }
 
