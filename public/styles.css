@@ -394,6 +394,30 @@ button:disabled {
   flex-wrap: wrap;
 }
 
+.install-title {
+  font-size: 12px;
+  font-weight: 700;
+  color: #0f172a;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: #e0f2fe;
+  border: 1px solid #bae6fd;
+}
+
+.install-steps {
+  display: grid;
+  gap: 6px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: #f0f9ff;
+  border: 1px dashed #7dd3fc;
+}
+
+.install-step {
+  font-size: 12px;
+  color: #0c4a6e;
+}
+
 .apk-link {
   display: inline-flex;
   align-items: center;

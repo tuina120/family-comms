@@ -30,6 +30,8 @@ const notifyStatus = document.querySelector("#notifyStatus");
 const installRow = document.querySelector("#installRow");
 const installBtn = document.querySelector("#installBtn");
 const installNote = document.querySelector("#installNote");
+const installTitle = document.querySelector("#installTitle");
+const installSteps = document.querySelector("#installSteps");
 const callBanner = document.querySelector("#callBanner");
 const callBannerText = document.querySelector("#callBannerText");
 const callBannerDismiss = document.querySelector("#callBannerDismiss");
@@ -94,10 +96,17 @@ const i18n = {
     notify_config_missing: "Notifications not configured",
     notify_saved: "Notifications saved",
     install_button: "Add to Home Screen",
+    install_title_android: "Android quick install",
     install_note_android: "Android: Menu → Add to Home screen.",
     install_note_ios:
       "iPhone: Share → Add to Home Screen to create the shortcut.",
     install_note_other: "Use your browser menu to add a desktop shortcut.",
+    install_step_android_1: "Step 1: Tap the ⋮ menu (top-right).",
+    install_step_android_2: "Step 2: Tap “Add to Home screen”.",
+    install_step_android_3: "Step 3: Tap “Add” to finish.",
+    install_step_ios_1: "Step 1: Tap the Share button.",
+    install_step_ios_2: "Step 2: Tap “Add to Home Screen”.",
+    install_step_ios_3: "Step 3: Tap “Add” to finish.",
     chat_placeholder: "Type a message",
     send_button: "Send",
     mic_mute: "Mute",
@@ -165,9 +174,16 @@ const i18n = {
     notify_config_missing: "通知未配置",
     notify_saved: "已保存通知设置",
     install_button: "添加到主屏幕",
+    install_title_android: "安卓快捷安装",
     install_note_android: "安卓：浏览器菜单 → 添加到主屏幕。",
     install_note_ios: "iPhone：点击分享 → 添加到主屏幕。",
     install_note_other: "请用浏览器菜单添加桌面快捷方式。",
+    install_step_android_1: "步骤 1：点击右上角 ⋮ 菜单。",
+    install_step_android_2: "步骤 2：选择“添加到主屏幕”。",
+    install_step_android_3: "步骤 3：点击“添加”完成。",
+    install_step_ios_1: "步骤 1：点击分享按钮。",
+    install_step_ios_2: "步骤 2：选择“添加到主屏幕”。",
+    install_step_ios_3: "步骤 3：点击“添加”完成。",
     chat_placeholder: "输入消息",
     send_button: "发送",
     mic_mute: "静音",
@@ -494,6 +510,9 @@ function updateText() {
     setNotifyStatus(state.notifyStatusKey);
   }
   updateInstallPrompt();
+  if (installTitle) {
+    installTitle.textContent = t("install_title_android");
+  }
   if (callBanner && !callBanner.hidden && state.incomingCallFrom) {
     callBannerText.textContent = t("msg_incoming_call", {
       name: state.incomingCallFrom,
@@ -723,6 +742,10 @@ function updateInstallPrompt() {
     return;
   }
   installRow.hidden = false;
+  if (installTitle) {
+    installTitle.hidden = !isAndroidDevice();
+    installTitle.textContent = t("install_title_android");
+  }
   if (deferredInstallPrompt) {
     if (installBtn) {
       installBtn.hidden = false;
@@ -730,6 +753,19 @@ function updateInstallPrompt() {
     }
     if (installNote) {
       installNote.textContent = t("install_note_android");
+    }
+    if (installSteps) {
+      installSteps.hidden = !isAndroidDevice();
+      if (isAndroidDevice()) {
+        const steps = [
+          "install_step_android_1",
+          "install_step_android_2",
+          "install_step_android_3",
+        ];
+        installSteps.innerHTML = steps
+          .map((key) => `<div class="install-step">${t(key)}</div>`)
+          .join("");
+      }
     }
     return;
   }
@@ -743,6 +779,32 @@ function updateInstallPrompt() {
       installNote.textContent = t("install_note_android");
     } else {
       installNote.textContent = t("install_note_other");
+    }
+  }
+  if (installSteps) {
+    if (isIOSDevice()) {
+      const steps = [
+        "install_step_ios_1",
+        "install_step_ios_2",
+        "install_step_ios_3",
+      ];
+      installSteps.innerHTML = steps
+        .map((key) => `<div class="install-step">${t(key)}</div>`)
+        .join("");
+      installSteps.hidden = false;
+    } else if (isAndroidDevice()) {
+      const steps = [
+        "install_step_android_1",
+        "install_step_android_2",
+        "install_step_android_3",
+      ];
+      installSteps.innerHTML = steps
+        .map((key) => `<div class="install-step">${t(key)}</div>`)
+        .join("");
+      installSteps.hidden = false;
+    } else {
+      installSteps.hidden = true;
+      installSteps.innerHTML = "";
     }
   }
 }
