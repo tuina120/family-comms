@@ -6,3 +6,4 @@ twa/*.keystore
 public/downloads/*.apk
 public/downloads/*.aab
 .tools/
+.npm-cache/

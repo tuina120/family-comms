@@ -135,12 +135,21 @@
                 </button>
                 <span id="notifyStatus" class="notify-status"></span>
               </div>
-              <div class="invite-download" id="apkRow" hidden>
-                <a id="apkLink" class="apk-link" href="#" download
-                  >Download APK</a
+              <div class="invite-download" id="installRow" hidden>
+                <button
+                  id="installBtn"
+                  class="apk-link"
+                  type="button"
+                  hidden
+                  data-i18n="install_button"
                 >
-                <span class="apk-note" data-i18n="apk_note"
-                  >Android app download</span
+                  Add to Home Screen
+                </button>
+                <span
+                  class="apk-note"
+                  id="installNote"
+                  data-i18n="install_note_android"
+                  >Add to Home Screen for quick access</span
                 >
               </div>
               <div class="invite-qr">

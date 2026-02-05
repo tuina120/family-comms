@@ -27,8 +27,9 @@ const includePasscodeCheckbox = document.querySelector("#includePasscode");
 const inviteQr = document.querySelector("#inviteQr");
 const notifyBtn = document.querySelector("#notifyBtn");
 const notifyStatus = document.querySelector("#notifyStatus");
-const apkRow = document.querySelector("#apkRow");
-const apkLink = document.querySelector("#apkLink");
+const installRow = document.querySelector("#installRow");
+const installBtn = document.querySelector("#installBtn");
+const installNote = document.querySelector("#installNote");
 const callBanner = document.querySelector("#callBanner");
 const callBannerText = document.querySelector("#callBannerText");
 const callBannerDismiss = document.querySelector("#callBannerDismiss");
@@ -92,8 +93,11 @@ const i18n = {
     notify_not_supported: "Notifications not supported",
     notify_config_missing: "Notifications not configured",
     notify_saved: "Notifications saved",
-    apk_download: "Download APK",
-    apk_note: "Android app download",
+    install_button: "Add to Home Screen",
+    install_note_android: "Add to Home Screen for quick access",
+    install_note_ios:
+      "iPhone: Share → Add to Home Screen to create the shortcut.",
+    install_note_other: "Use your browser menu to add a desktop shortcut.",
     chat_placeholder: "Type a message",
     send_button: "Send",
     mic_mute: "Mute",
@@ -160,8 +164,10 @@ const i18n = {
     notify_not_supported: "当前不支持通知",
     notify_config_missing: "通知未配置",
     notify_saved: "已保存通知设置",
-    apk_download: "下载安卓 APK",
-    apk_note: "安卓 App 下载",
+    install_button: "添加到主屏幕",
+    install_note_android: "添加到主屏幕，方便打开。",
+    install_note_ios: "iPhone：点击分享 → 添加到主屏幕。",
+    install_note_other: "请用浏览器菜单添加桌面快捷方式。",
     chat_placeholder: "输入消息",
     send_button: "发送",
     mic_mute: "静音",
@@ -220,6 +226,7 @@ const state = {
   audioUnlocked: false,
   audioContext: null,
 };
+let deferredInstallPrompt = null;
 
 function canonicalizeName(name) {
   const trimmed = (name || "").trim().slice(0, 32);
@@ -422,6 +429,7 @@ function setConnectedUI(connected) {
   if (!connected) {
     hideSoundBanner();
   }
+  updateInstallPrompt();
 }
 
 function updateLangButtons() {
@@ -474,9 +482,7 @@ function updateText() {
   if (state.notifyStatusKey) {
     setNotifyStatus(state.notifyStatusKey);
   }
-  if (apkLink) {
-    apkLink.textContent = t("apk_download");
-  }
+  updateInstallPrompt();
   if (callBanner && !callBanner.hidden && state.incomingCallFrom) {
     callBannerText.textContent = t("msg_incoming_call", {
       name: state.incomingCallFrom,
@@ -582,10 +588,6 @@ function updateInvite() {
       link,
     )}`;
     inviteQr.src = qrSrc;
-  }
-  if (apkLink) {
-    apkLink.href = "/downloads/weijin-family.apk";
-    apkLink.setAttribute("download", "weijin-family.apk");
   }
 }
 
@@ -703,16 +705,28 @@ async function refreshNotificationStatus() {
   }
 }
 
-async function checkApkAvailability() {
-  if (!apkRow || !apkLink) return;
-  try {
-    const res = await fetch("/downloads/weijin-family.apk", {
-      method: "HEAD",
-      cache: "no-store",
-    });
-    apkRow.hidden = !res.ok;
-  } catch {
-    apkRow.hidden = true;
+function updateInstallPrompt() {
+  if (!installRow) return;
+  if (!state.selfId) {
+    installRow.hidden = true;
+    return;
+  }
+  installRow.hidden = false;
+  if (deferredInstallPrompt) {
+    if (installBtn) {
+      installBtn.hidden = false;
+      installBtn.disabled = false;
+    }
+    if (installNote) {
+      installNote.textContent = t("install_note_android");
+    }
+    return;
+  }
+  if (installBtn) {
+    installBtn.hidden = true;
+  }
+  if (installNote) {
+    installNote.textContent = t(isIOSDevice() ? "install_note_ios" : "install_note_other");
   }
 }
 
@@ -1463,7 +1477,6 @@ updateText();
 updateNotifyButton();
 updateCallButton();
 refreshNotificationStatus();
-checkApkAvailability();
 setConnectedUI(false);
 
 if (stored.storedName) {
@@ -1563,6 +1576,26 @@ document.addEventListener(
 if (soundBanner) {
   soundBanner.addEventListener("click", () => {
     unlockAudio();
+  });
+}
+
+window.addEventListener("beforeinstallprompt", (event) => {
+  event.preventDefault();
+  deferredInstallPrompt = event;
+  updateInstallPrompt();
+});
+
+if (installBtn) {
+  installBtn.addEventListener("click", async () => {
+    if (!deferredInstallPrompt) return;
+    deferredInstallPrompt.prompt();
+    try {
+      await deferredInstallPrompt.userChoice;
+    } catch {
+      // Ignore userChoice errors.
+    }
+    deferredInstallPrompt = null;
+    updateInstallPrompt();
   });
 }
 
