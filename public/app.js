@@ -1053,6 +1053,8 @@ function removeRemoteTile(peerId) {
   if (peer.tileEl && peer.tileEl.parentElement) {
     peer.tileEl.parentElement.removeChild(peer.tileEl);
   }
+  peer.tileEl = null;
+  peer.videoEl = null;
 }
 
 function clearRemoteTiles() {
@@ -1130,6 +1132,16 @@ function ensurePeer(id, name) {
     if (peer.videoEl) {
       tryPlayVideo(peer.videoEl);
     }
+    if (event.track && event.track.kind === "video") {
+      if (!peer.tileEl) {
+        createRemoteTile(peer);
+      }
+      event.track.onended = () => {
+        if (peer.stream.getVideoTracks().length === 0) {
+          removeRemoteTile(peer.id);
+        }
+      };
+    }
   };
 
   pc.onicecandidate = (event) => {
@@ -1145,7 +1157,9 @@ function ensurePeer(id, name) {
   };
 
   state.peers.set(id, peer);
-  createRemoteTile(peer);
+  if (peer.stream.getVideoTracks().length > 0) {
+    createRemoteTile(peer);
+  }
   renderParticipants();
   return peer;
 }
