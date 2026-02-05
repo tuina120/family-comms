@@ -94,7 +94,7 @@ const i18n = {
     notify_config_missing: "Notifications not configured",
     notify_saved: "Notifications saved",
     install_button: "Add to Home Screen",
-    install_note_android: "Add to Home Screen for quick access",
+    install_note_android: "Android: Menu → Add to Home screen.",
     install_note_ios:
       "iPhone: Share → Add to Home Screen to create the shortcut.",
     install_note_other: "Use your browser menu to add a desktop shortcut.",
@@ -165,7 +165,7 @@ const i18n = {
     notify_config_missing: "通知未配置",
     notify_saved: "已保存通知设置",
     install_button: "添加到主屏幕",
-    install_note_android: "添加到主屏幕，方便打开。",
+    install_note_android: "安卓：浏览器菜单 → 添加到主屏幕。",
     install_note_ios: "iPhone：点击分享 → 添加到主屏幕。",
     install_note_other: "请用浏览器菜单添加桌面快捷方式。",
     chat_placeholder: "输入消息",
@@ -243,6 +243,17 @@ function isAdminUser(name) {
 
 function isIOSDevice() {
   return /iPad|iPhone|iPod/.test(navigator.userAgent);
+}
+
+function isAndroidDevice() {
+  return /Android/i.test(navigator.userAgent);
+}
+
+function isStandaloneMode() {
+  return (
+    window.matchMedia("(display-mode: standalone)").matches ||
+    window.navigator.standalone === true
+  );
 }
 
 function setStatus(text) {
@@ -707,7 +718,7 @@ async function refreshNotificationStatus() {
 
 function updateInstallPrompt() {
   if (!installRow) return;
-  if (!state.selfId) {
+  if (!state.selfId || isStandaloneMode()) {
     installRow.hidden = true;
     return;
   }
@@ -726,7 +737,13 @@ function updateInstallPrompt() {
     installBtn.hidden = true;
   }
   if (installNote) {
-    installNote.textContent = t(isIOSDevice() ? "install_note_ios" : "install_note_other");
+    if (isIOSDevice()) {
+      installNote.textContent = t("install_note_ios");
+    } else if (isAndroidDevice()) {
+      installNote.textContent = t("install_note_android");
+    } else {
+      installNote.textContent = t("install_note_other");
+    }
   }
 }
 

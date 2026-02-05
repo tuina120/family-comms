@@ -1,4 +1,4 @@
-const CACHE_NAME = "family-comms-v24";
+const CACHE_NAME = "family-comms-v25";
 const ASSETS = [
   "/",
   "/index.html",
@@ -43,6 +43,11 @@ self.addEventListener("push", (event) => {
     icon: "/icon-192.png",
     badge: "/icon-192.png",
     data: { url: "/" },
+    vibrate: [0, 500, 300, 500, 300, 500],
+    tag: "incoming-call",
+    renotify: true,
+    requireInteraction: true,
+    silent: false,
   };
   event.waitUntil(self.registration.showNotification(title, options));
 });
