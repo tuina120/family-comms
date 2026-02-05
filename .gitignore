@@ -5,3 +5,4 @@ twa/*.keystore
 .config/
 public/downloads/*.apk
 public/downloads/*.aab
+.tools/
